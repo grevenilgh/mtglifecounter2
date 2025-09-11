@@ -26,7 +26,7 @@ class PlayerCounter extends StatefulWidget {
 
 class _PlayerCounterState extends State<PlayerCounter> {
   late int _life;
-  late int _life2;
+  late int _lifeOld;
   List<String> _history = [];
   final ScrollController _scrollController = ScrollController();
 
@@ -38,7 +38,7 @@ class _PlayerCounterState extends State<PlayerCounter> {
   void initState() {
     super.initState();
     _life = widget.initialLife;
-    _life2 = widget.initialLife;
+    _lifeOld = widget.initialLife;
     widget.resetNotifier.addListener(_reset);
   }
 
@@ -55,7 +55,7 @@ class _PlayerCounterState extends State<PlayerCounter> {
   void _reset() {
     setState(() {
       _life = widget.initialLife;
-      _life2 = widget.initialLife;
+      _lifeOld = widget.initialLife;
       _history = [];
       //_currentChange = 0;
     });
@@ -97,10 +97,10 @@ class _PlayerCounterState extends State<PlayerCounter> {
 
   // Este método se ejecuta cuando el usuario deja de pulsar por XXXms
   void _finalizeTap() {
-    if (_life != _life2) {
+    if (_life != _lifeOld) {
       setState(() {
-        final change = _life - _life2;
-        _life2 = _life;
+        final change = _life - _lifeOld;
+        _lifeOld = _life;
         // Añadimos el cambio acumulado al historial
         final sign = change > 0 ? '+' : '';
         _history.add('$sign$change = $_life');
@@ -171,6 +171,38 @@ class _PlayerCounterState extends State<PlayerCounter> {
                         Icons.remove_circle,
                         color: Colors.white,
                         size: 24,
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: AnimatedOpacity(
+                      opacity: (_life - _lifeOld) != 0
+                          ? 1.0
+                          : 0.0, // Visible si hay cambios
+                      duration: const Duration(milliseconds: 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.8),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          (_life - _lifeOld) > 0
+                              ? '+${_life - _lifeOld}'
+                              : '${_life - _lifeOld}',
+                          style: TextStyle(
+                            color: (_life - _lifeOld) > 0
+                                ? Colors.greenAccent
+                                : (_life - _lifeOld) < 0
+                                ? Colors.redAccent
+                                : Colors.white,
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
                   ),
