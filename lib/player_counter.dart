@@ -172,6 +172,38 @@ class _PlayerCounterState extends State<PlayerCounter> {
                       ),
                     ),
                   ),
+                  Center(
+                    child: AnimatedOpacity(
+                      opacity: (_life - _lifeOld) != 0
+                          ? 1.0
+                          : 0.0, // Visible si hay cambios
+                      duration: const Duration(milliseconds: 0),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          (_life - _lifeOld) > 0
+                              ? '+${_life - _lifeOld}'
+                              : '${_life - _lifeOld}',
+                          style: TextStyle(
+                            color: (_life - _lifeOld) > 0
+                                ? Colors.greenAccent
+                                : (_life - _lifeOld) < 0
+                                ? Colors.redAccent
+                                : Colors.white,
+                            fontSize: 40,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
