@@ -184,7 +184,7 @@ class _PlayerCounterState extends State<PlayerCounter> {
                           vertical: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.5),
+                          color: Colors.black.withOpacity(0.8),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -197,7 +197,7 @@ class _PlayerCounterState extends State<PlayerCounter> {
                                 : (_life - _lifeOld) < 0
                                 ? Colors.redAccent
                                 : Colors.white,
-                            fontSize: 40,
+                            fontSize: 28,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
