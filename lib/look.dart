@@ -61,6 +61,9 @@ enum ZoneMarks {
   /// Lo mismo, bastante más marcado.
   strong('Tono marcado'),
 
+  /// La de arriba teñida de verde y la de abajo de rojo.
+  color('Verde y rojo'),
+
   /// Una línea discontinua en medio.
   line('Línea'),
 
@@ -72,7 +75,6 @@ enum ZoneMarks {
   final String label;
 
   bool get hasLine => this == line || this == both;
-  bool get isStrong => this == strong;
 
   static ZoneMarks fromName(String? name) =>
       values.firstWhere((m) => m.name == name, orElse: () => both);

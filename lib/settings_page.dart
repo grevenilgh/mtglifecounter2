@@ -48,409 +48,491 @@ class SettingsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: kSettingsBackground,
-      appBar: AppBar(
-        title: const Text('Ajustes'),
+    // Dos pestañas: cómo se ve la app y cómo se juega con ella.
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
         backgroundColor: kSettingsBackground,
-        foregroundColor: Colors.white,
-        surfaceTintColor: Colors.transparent,
-      ),
-      body: ListenableBuilder(
-        listenable: settings,
-        builder: (context, _) {
-          final custom = settings.customSkin;
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
-            children: [
-              const _SectionTitle('Aspecto'),
-              const _Label('Tema'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final theme in AppTheme.values)
-                    _Chip(
-                      label: theme.label,
-                      selected: settings.theme == theme,
-                      onTap: () => settings.theme = theme,
-                    ),
-                ],
-              ),
-              if (settings.theme == AppTheme.modern) ...[
-                const _Label('Variante'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final variant in ModernVariant.values)
-                      _Chip(
-                        label: variant.label,
-                        selected: settings.modernVariant == variant,
-                        onTap: () => settings.modernVariant = variant,
-                      ),
-                  ],
-                ),
-              ],
-              const _Label('Skin'),
-              Row(
-                children: [
-                  for (final skin in [...Skin.presets, custom]) ...[
-                    if (skin != Skin.presets.first) const SizedBox(width: 10),
-                    Expanded(
-                      child: _SkinCard(
-                        skin: skin,
-                        image: settings.backgroundOf(skin),
-                        selected: settings.skinId == skin.id,
-                        onTap: () => settings.skinId = skin.id,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              if (settings.skinId == Skin.customDefault.id) ...[
-                _ColorRow(
-                  label: 'Jugador de arriba',
-                  color: custom.top,
-                  onChanged: (c) =>
-                      settings.customSkin = custom.copyWith(top: c),
-                ),
-                _ColorRow(
-                  label: 'Jugador de abajo',
-                  color: custom.bottom,
-                  onChanged: (c) =>
-                      settings.customSkin = custom.copyWith(bottom: c),
-                ),
-                _ColorRow(
-                  label: 'Barra central',
-                  color: custom.bar,
-                  onChanged: (c) =>
-                      settings.customSkin = custom.copyWith(bar: c),
-                ),
-                const _Label('Imagen de fondo'),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final background in SkinBackground.values)
-                      if (background != SkinBackground.photo)
-                        _Chip(
-                          label: background.label,
-                          selected: custom.background == background,
-                          onTap: () => settings.customSkin = custom.copyWith(
-                            background: background,
-                          ),
-                        ),
-                    _Chip(
-                      label: settings.backgroundPhoto == null
-                          ? 'Elegir imagen…'
-                          : SkinBackground.photo.label,
-                      selected: custom.background == SkinBackground.photo,
-                      onTap: () {
-                        if (settings.backgroundPhoto == null) {
-                          _pickPhoto(context);
-                        } else {
-                          settings.customSkin = custom.copyWith(
-                            background: SkinBackground.photo,
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                if (custom.background == SkinBackground.photo)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () => _pickPhoto(context),
-                          icon: const Icon(Icons.photo_library_outlined),
-                          label: const Text('Cambiar imagen'),
-                          style: TextButton.styleFrom(foregroundColor: kAccent),
-                        ),
-                        TextButton.icon(
-                          onPressed: () => settings.backgroundPhoto = null,
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Quitar'),
-                          style: TextButton.styleFrom(
-                            foregroundColor: kMutedText,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-              const _Label('Imagen de fondo'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final mode in BackgroundMode.values)
-                    _Chip(
-                      label: mode.label,
-                      selected: settings.backgroundMode == mode,
-                      onTap: () => settings.backgroundMode = mode,
-                    ),
-                ],
-              ),
-              const _Help(
-                'Con una para cada jugador, los dos la ven entera y derecha '
-                'desde su lado de la mesa.',
-              ),
-              const _Label('Opacidad de la imagen'),
-              _PercentSlider(
-                value: settings.imageOpacity,
-                min: 0,
-                label: 'Opacidad de la imagen',
-                onChanged: (v) => settings.imageOpacity = v,
-              ),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final (name, value) in const [
-                    ('Nítida', 100),
-                    ('Suave', 60),
-                    ('Tenue', 30),
-                  ])
-                    _Chip(
-                      label: '$name · $value %',
-                      selected: settings.imageOpacity == value,
-                      onTap: () => settings.imageOpacity = value,
-                    ),
-                ],
-              ),
-              const _Help(
-                'Cuanto más baja, más se ve el color del jugador y mejor se '
-                'lee el número.',
-              ),
-              const SizedBox(height: 12),
-              _SettingsCard(
-                children: [
-                  _SwitchRow(
-                    title: 'Foco en el número',
-                    subtitle: 'Oscurece la imagen solo detrás del número.',
-                    value: settings.focus,
-                    onChanged: (v) => settings.focus = v,
-                  ),
-                ],
-              ),
-              const _Label('Mitad que suma y mitad que resta'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final marks in ZoneMarks.values)
-                    _Chip(
-                      label: marks.label,
-                      selected: settings.zoneMarks == marks,
-                      onTap: () => settings.zoneMarks = marks,
-                    ),
-                ],
-              ),
-              const _Label('Opacidad de la barra central'),
-              _PercentSlider(
-                value: settings.barOpacity,
-                min: AppSettings.minBarOpacity,
-                label: 'Opacidad de la barra central',
-                onChanged: (v) => settings.barOpacity = v,
-              ),
-              const _Label('Opacidad del historial'),
-              _PercentSlider(
-                value: settings.historyOpacity,
-                min: 0,
-                label: 'Opacidad del historial',
-                onChanged: (v) => settings.historyOpacity = v,
-              ),
-              if (settings.theme == AppTheme.classic) ...[
-                const _Label('Opacidad del marco'),
-                _PercentSlider(
-                  value: settings.frameOpacity,
-                  min: AppSettings.minFrameOpacity,
-                  label: 'Opacidad del marco',
-                  onChanged: (v) => settings.frameOpacity = v,
-                ),
-              ],
-              const _Help(
-                'Por debajo de 100 % se transparenta la imagen de fondo. El '
-                'número y los botones + y − siempre van opacos.',
-              ),
-              const _SectionTitle('Vidas'),
-              _SettingsCard(
-                children: [
-                  _SwitchRow(
-                    title: 'Animaciones al cambiar vidas',
-                    subtitle:
-                        'Al perder, el número se sacude y el borde se tiñe de '
-                        'rojo; al ganar, brilla en verde.',
-                    value: settings.animations,
-                    onChanged: (v) => settings.animations = v,
-                  ),
-                ],
-              ),
-              const _SectionTitle('Barra central'),
-              _SettingsCard(
-                children: [
-                  _SwitchRow(
-                    title: 'Cantidad por toque (− 1 +)',
-                    subtitle:
-                        'Para sumar o restar más de una vida de golpe. Sin '
-                        'ella, cada toque cuenta 1.',
-                    value: settings.showStepper,
-                    onChanged: (v) => settings.showStepper = v,
-                  ),
-                  _SwitchRow(
-                    title: 'Temporizador de ronda',
-                    subtitle: 'El reloj en la barra.',
-                    value: settings.showTimer,
-                    onChanged: (v) => settings.showTimer = v,
-                  ),
-                ],
-              ),
-              const _SectionTitle('Temporizador'),
-              const _Label('Modo'),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  for (final mode in TimerMode.values)
-                    _Chip(
-                      label: mode.label,
-                      selected: settings.timerMode == mode,
-                      onTap: () => settings.timerMode = mode,
-                    ),
-                ],
-              ),
-              _Help(
-                settings.timerMode == TimerMode.countdown
-                    ? 'Cuenta hacia cero el tiempo de la ronda.'
-                    : 'Cuenta hacia delante lo que dura la partida, sin límite '
-                          'ni aviso.',
-              ),
-              if (settings.timerMode == TimerMode.countdown) ...[
-                const SizedBox(height: 12),
-                _SettingsCard(
-                  children: [
-                    ListTile(
-                      title: const Text(
-                        'Duración de la ronda',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                      subtitle: const Text(
-                        'Por defecto, 50 minutos',
-                        style: TextStyle(color: kMutedText),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Cinco minutos menos',
-                            color: Colors.white,
-                            onPressed:
-                                settings.roundMinutes >
-                                    AppSettings.minRoundMinutes
-                                ? () => settings.roundMinutes -= 5
-                                : null,
-                            icon: const Icon(Icons.remove_circle_outline),
-                          ),
-                          SizedBox(
-                            width: 58,
-                            child: Text(
-                              '${settings.roundMinutes} min',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: 'Cinco minutos más',
-                            color: Colors.white,
-                            onPressed:
-                                settings.roundMinutes <
-                                    AppSettings.maxRoundMinutes
-                                ? () => settings.roundMinutes += 5
-                                : null,
-                            icon: const Icon(Icons.add_circle_outline),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _SwitchRow(
-                      title: 'Avisar a falta de 5 minutos',
-                      subtitle: 'El reloj de la barra se pone ámbar.',
-                      value: settings.timerWarning,
-                      onChanged: (v) => settings.timerWarning = v,
-                    ),
-                    _SwitchRow(
-                      title: 'Vibrar al acabar el tiempo',
-                      subtitle: 'Un aviso que se nota con el móvil en la mesa.',
-                      value: settings.timerVibrate,
-                      onChanged: (v) => settings.timerVibrate = v,
-                    ),
-                  ],
-                ),
-              ],
-              const _SectionTitle('Partida'),
-              _SettingsCard(
-                children: [
-                  _SwitchRow(
-                    title: 'Recordar la partida',
-                    subtitle:
-                        'Si se cierra la app, las vidas y el historial siguen igual al volver.',
-                    value: settings.rememberGame,
-                    onChanged: (v) => settings.rememberGame = v,
-                  ),
-                  _SwitchRow(
-                    title: 'Mantener la pantalla encendida',
-                    subtitle: 'Para que no se apague con el móvil en la mesa.',
-                    value: settings.keepScreenOn,
-                    onChanged: (v) => settings.keepScreenOn = v,
-                  ),
-                ],
-              ),
+        appBar: AppBar(
+          title: const Text('Ajustes'),
+          backgroundColor: kSettingsBackground,
+          foregroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          bottom: const TabBar(
+            indicatorColor: kAccent,
+            labelColor: Colors.white,
+            unselectedLabelColor: kMutedText,
+            dividerColor: Color(0xFF2C2C2E),
+            tabs: [
+              Tab(icon: Icon(Icons.palette_outlined), text: 'Diseño'),
+              Tab(icon: Icon(Icons.casino_outlined), text: 'Partida'),
             ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 22, bottom: 10),
-      child: Text(
-        text.toUpperCase(),
-        style: const TextStyle(
-          color: kMutedText,
-          fontSize: 13,
-          fontWeight: FontWeight.w700,
-          letterSpacing: 1,
+          ),
+        ),
+        body: ListenableBuilder(
+          listenable: settings,
+          builder: (context, _) =>
+              TabBarView(children: [_design(context), _game()]),
         ),
       ),
     );
   }
+
+  Widget _design(BuildContext context) {
+    final custom = settings.customSkin;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+      children: [
+        _Group(
+          title: 'Tema',
+          icon: Icons.style_outlined,
+          children: [
+            _Choices(
+              children: [
+                for (final theme in AppTheme.values)
+                  _Chip(
+                    label: theme.label,
+                    selected: settings.theme == theme,
+                    onTap: () => settings.theme = theme,
+                  ),
+              ],
+            ),
+            if (settings.theme == AppTheme.modern) ...[
+              const _Label('Variante'),
+              _Choices(
+                children: [
+                  for (final variant in ModernVariant.values)
+                    _Chip(
+                      label: variant.label,
+                      selected: settings.modernVariant == variant,
+                      onTap: () => settings.modernVariant = variant,
+                    ),
+                ],
+              ),
+            ],
+            if (settings.theme == AppTheme.classic)
+              const _Help(
+                'Cada jugador lleva el marco de carta antigua que mejor va con '
+                'su color.',
+              ),
+          ],
+        ),
+        _Group(
+          title: 'Skin',
+          icon: Icons.color_lens_outlined,
+          children: [
+            Row(
+              children: [
+                for (final skin in [...Skin.presets, custom]) ...[
+                  if (skin != Skin.presets.first) const SizedBox(width: 10),
+                  Expanded(
+                    child: _SkinCard(
+                      skin: skin,
+                      image: settings.backgroundOf(skin),
+                      selected: settings.skinId == skin.id,
+                      onTap: () => settings.skinId = skin.id,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const _Help(
+              'En Android, el icono y el nombre de la app cambian con la skin '
+              'al salir de ella.',
+            ),
+            if (settings.skinId == Skin.customDefault.id) ...[
+              _ColorRow(
+                label: 'Jugador de arriba',
+                color: custom.top,
+                onChanged: (c) => settings.customSkin = custom.copyWith(top: c),
+              ),
+              _ColorRow(
+                label: 'Jugador de abajo',
+                color: custom.bottom,
+                onChanged: (c) =>
+                    settings.customSkin = custom.copyWith(bottom: c),
+              ),
+              _ColorRow(
+                label: 'Barra central',
+                color: custom.bar,
+                onChanged: (c) => settings.customSkin = custom.copyWith(bar: c),
+              ),
+              const _Label('Imagen de la skin'),
+              _Choices(
+                children: [
+                  for (final background in SkinBackground.values)
+                    if (background != SkinBackground.photo)
+                      _Chip(
+                        label: background.label,
+                        selected: custom.background == background,
+                        onTap: () => settings.customSkin = custom.copyWith(
+                          background: background,
+                        ),
+                      ),
+                  _Chip(
+                    label: settings.backgroundPhoto == null
+                        ? 'Elegir imagen…'
+                        : SkinBackground.photo.label,
+                    selected: custom.background == SkinBackground.photo,
+                    onTap: () {
+                      if (settings.backgroundPhoto == null) {
+                        _pickPhoto(context);
+                      } else {
+                        settings.customSkin = custom.copyWith(
+                          background: SkinBackground.photo,
+                        );
+                      }
+                    },
+                  ),
+                ],
+              ),
+              if (custom.background == SkinBackground.photo)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Wrap(
+                    spacing: 8,
+                    children: [
+                      TextButton.icon(
+                        onPressed: () => _pickPhoto(context),
+                        icon: const Icon(Icons.photo_library_outlined),
+                        label: const Text('Cambiar imagen'),
+                        style: TextButton.styleFrom(foregroundColor: kAccent),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => settings.backgroundPhoto = null,
+                        icon: const Icon(Icons.delete_outline),
+                        label: const Text('Quitar'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: kMutedText,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ],
+        ),
+        _Group(
+          title: 'Imagen de fondo',
+          icon: Icons.image_outlined,
+          children: [
+            _Choices(
+              children: [
+                for (final mode in BackgroundMode.values)
+                  _Chip(
+                    label: mode.label,
+                    selected: settings.backgroundMode == mode,
+                    onTap: () => settings.backgroundMode = mode,
+                  ),
+              ],
+            ),
+            const _Help(
+              'Con una para cada jugador, los dos la ven entera y derecha '
+              'desde su lado de la mesa.',
+            ),
+            const _Label('Opacidad de la imagen'),
+            _PercentSlider(
+              value: settings.imageOpacity,
+              min: 0,
+              label: 'Opacidad de la imagen',
+              onChanged: (v) => settings.imageOpacity = v,
+            ),
+            _Choices(
+              children: [
+                for (final (name, value) in const [
+                  ('Nítida', 100),
+                  ('Suave', 60),
+                  ('Tenue', 30),
+                ])
+                  _Chip(
+                    label: '$name · $value %',
+                    selected: settings.imageOpacity == value,
+                    onTap: () => settings.imageOpacity = value,
+                  ),
+              ],
+            ),
+            const _Help(
+              'Cuanto más baja, más se ve el color del jugador y mejor se lee '
+              'el número.',
+            ),
+            _SwitchRow(
+              title: 'Foco en el número',
+              subtitle: 'Oscurece la imagen solo detrás del número.',
+              value: settings.focus,
+              onChanged: (v) => settings.focus = v,
+            ),
+          ],
+        ),
+        _Group(
+          title: 'Paneles',
+          icon: Icons.splitscreen_outlined,
+          children: [
+            const _Label('Mitad que suma y mitad que resta', first: true),
+            _Choices(
+              children: [
+                for (final marks in ZoneMarks.values)
+                  _Chip(
+                    label: marks.label,
+                    selected: settings.zoneMarks == marks,
+                    onTap: () => settings.zoneMarks = marks,
+                  ),
+              ],
+            ),
+            _SwitchRow(
+              title: 'Animaciones al cambiar vidas',
+              subtitle:
+                  'Al perder, el número se sacude y el borde se tiñe de rojo; '
+                  'al ganar, brilla en verde.',
+              value: settings.animations,
+              onChanged: (v) => settings.animations = v,
+            ),
+          ],
+        ),
+        _Group(
+          title: 'Transparencia',
+          icon: Icons.opacity_outlined,
+          children: [
+            const _Label('Barra central', first: true),
+            _PercentSlider(
+              value: settings.barOpacity,
+              min: AppSettings.minBarOpacity,
+              label: 'Opacidad de la barra central',
+              onChanged: (v) => settings.barOpacity = v,
+            ),
+            const _Label('Historial'),
+            _PercentSlider(
+              value: settings.historyOpacity,
+              min: 0,
+              label: 'Opacidad del historial',
+              onChanged: (v) => settings.historyOpacity = v,
+            ),
+            if (settings.theme == AppTheme.classic) ...[
+              const _Label('Marco'),
+              _PercentSlider(
+                value: settings.frameOpacity,
+                min: AppSettings.minFrameOpacity,
+                label: 'Opacidad del marco',
+                onChanged: (v) => settings.frameOpacity = v,
+              ),
+            ],
+            const _Help(
+              'Por debajo de 100 % se transparenta la imagen de fondo. El '
+              'número y los botones + y − siempre van opacos.',
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _game() {
+    final countdown = settings.timerMode == TimerMode.countdown;
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
+      children: [
+        _Group(
+          title: 'Barra central',
+          icon: Icons.view_agenda_outlined,
+          children: [
+            _SwitchRow(
+              title: 'Cantidad por toque (− 1 +)',
+              subtitle:
+                  'Para sumar o restar más de una vida de golpe. Sin ella, '
+                  'cada toque cuenta 1.',
+              value: settings.showStepper,
+              onChanged: (v) => settings.showStepper = v,
+            ),
+            _SwitchRow(
+              title: 'Temporizador de ronda',
+              subtitle: 'El reloj en la barra.',
+              value: settings.showTimer,
+              onChanged: (v) => settings.showTimer = v,
+            ),
+          ],
+        ),
+        _Group(
+          title: 'Temporizador',
+          icon: Icons.timer_outlined,
+          children: [
+            _Choices(
+              children: [
+                for (final mode in TimerMode.values)
+                  _Chip(
+                    label: mode.label,
+                    selected: settings.timerMode == mode,
+                    onTap: () => settings.timerMode = mode,
+                  ),
+              ],
+            ),
+            _Help(
+              countdown
+                  ? 'Cuenta hacia cero el tiempo de la ronda. También se cambia '
+                        'desde el reloj de la barra.'
+                  : 'Cuenta hacia delante lo que dura la partida, sin límite '
+                        'ni aviso.',
+            ),
+            if (countdown) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Duración de la ronda',
+                          style: TextStyle(color: Colors.white, fontSize: 16),
+                        ),
+                        Text(
+                          'Por defecto, 50 minutos',
+                          style: TextStyle(color: kMutedText, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cinco minutos menos',
+                    color: Colors.white,
+                    onPressed:
+                        settings.roundMinutes > AppSettings.minRoundMinutes
+                        ? () => settings.roundMinutes -= 5
+                        : null,
+                    icon: const Icon(Icons.remove_circle_outline),
+                  ),
+                  SizedBox(
+                    width: 58,
+                    child: Text(
+                      '${settings.roundMinutes} min',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Cinco minutos más',
+                    color: Colors.white,
+                    onPressed:
+                        settings.roundMinutes < AppSettings.maxRoundMinutes
+                        ? () => settings.roundMinutes += 5
+                        : null,
+                    icon: const Icon(Icons.add_circle_outline),
+                  ),
+                ],
+              ),
+              _SwitchRow(
+                title: 'Avisar a falta de 5 minutos',
+                subtitle: 'El reloj de la barra se pone ámbar.',
+                value: settings.timerWarning,
+                onChanged: (v) => settings.timerWarning = v,
+              ),
+              _SwitchRow(
+                title: 'Vibrar al acabar el tiempo',
+                subtitle: 'Un aviso que se nota con el móvil en la mesa.',
+                value: settings.timerVibrate,
+                onChanged: (v) => settings.timerVibrate = v,
+              ),
+            ],
+          ],
+        ),
+        _Group(
+          title: 'Partida',
+          icon: Icons.save_outlined,
+          children: [
+            _SwitchRow(
+              title: 'Recordar la partida',
+              subtitle:
+                  'Si se cierra la app, las vidas y el historial siguen igual '
+                  'al volver.',
+              value: settings.rememberGame,
+              onChanged: (v) => settings.rememberGame = v,
+            ),
+            _SwitchRow(
+              title: 'Mantener la pantalla encendida',
+              subtitle: 'Para que no se apague con el móvil en la mesa.',
+              value: settings.keepScreenOn,
+              onChanged: (v) => settings.keepScreenOn = v,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// Un grupo de ajustes: una tarjeta con su título.
+class _Group extends StatelessWidget {
+  const _Group({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+      decoration: BoxDecoration(
+        color: kCardColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Icon(icon, color: kAccent, size: 20),
+                const SizedBox(width: 10),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 17,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+/// Una fila de chips que salta de línea si no cabe.
+class _Choices extends StatelessWidget {
+  const _Choices({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(spacing: 8, runSpacing: 8, children: children);
+  }
 }
 
 class _Label extends StatelessWidget {
-  const _Label(this.text);
+  const _Label(this.text, {this.first = false});
 
   final String text;
+
+  /// Si es lo primero del grupo, va pegada al título.
+  final bool first;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 16, bottom: 8),
+      padding: EdgeInsets.only(top: first ? 0 : 16, bottom: 8),
       child: Text(
         text,
         style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 14),
@@ -754,30 +836,6 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _SettingsCard extends StatelessWidget {
-  const _SettingsCard({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: kCardColor,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < children.length; i++) ...[
-            if (i > 0) const Divider(height: 1, color: Color(0xFF2C2C2E)),
-            children[i],
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 class _SwitchRow extends StatelessWidget {
   const _SwitchRow({
     required this.title,
@@ -794,6 +852,7 @@ class _SwitchRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
       title: Text(title, style: const TextStyle(color: Colors.white)),
       subtitle: Text(subtitle, style: const TextStyle(color: kMutedText)),
       value: value,

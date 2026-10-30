@@ -166,6 +166,33 @@ Future<void> showTimerSheet(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Se puede cambiar de modo en cualquier momento: el tiempo que
+                // lleva la partida se mantiene.
+                SegmentedButton<TimerMode>(
+                  segments: const [
+                    ButtonSegment(
+                      value: TimerMode.countdown,
+                      icon: Icon(Icons.hourglass_bottom),
+                      label: Text('Cuenta atrás'),
+                    ),
+                    ButtonSegment(
+                      value: TimerMode.stopwatch,
+                      icon: Icon(Icons.timer_outlined),
+                      label: Text('Cronómetro'),
+                    ),
+                  ],
+                  selected: {settings.timerMode},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (modes) =>
+                      settings.timerMode = modes.first,
+                  style: SegmentedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    selectedForegroundColor: const Color(0xFF1A1306),
+                    selectedBackgroundColor: kAccent,
+                    side: const BorderSide(color: Color(0x40FFFFFF)),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 Text(
                   countdown ? 'Tiempo de ronda' : 'Tiempo de partida',
                   style: const TextStyle(

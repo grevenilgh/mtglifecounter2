@@ -367,8 +367,8 @@ class _Zone extends StatelessWidget {
               ),
             ),
           ),
-        // La mitad que suma algo más clara y la que resta más oscura.
-        _Halves(strong: style.zoneMarks.isStrong),
+        // La mitad que suma se distingue de la que resta (salvo con «Línea»).
+        if (style.zoneMarks != ZoneMarks.line) _Halves(marks: style.zoneMarks),
         if (style.zoneMarks.hasLine)
           Padding(
             padding: EdgeInsets.only(left: 10, right: inset + 4),
@@ -508,39 +508,35 @@ Color hitColor({required bool up, required Color panel}) {
 /// El tono de las dos mitades: arriba más claro (suma), abajo más oscuro
 /// (resta).
 class _Halves extends StatelessWidget {
-  const _Halves({required this.strong});
+  const _Halves({required this.marks});
 
-  final bool strong;
+  final ZoneMarks marks;
 
+  // Colores lisos y no degradados: lo que se ve es el corte en medio, y con
+  // un degradado que se apagaba hacia el centro apenas se notaba.
   @override
   Widget build(BuildContext context) {
-    final k = strong ? 2.4 : 1.0;
-    Color white(double a) => Colors.white.withValues(alpha: a * k);
-    Color black(double a) => Colors.black.withValues(alpha: a * k);
+    final (Color top, Color bottom) = switch (marks) {
+      ZoneMarks.soft || ZoneMarks.both => (
+        Colors.white.withValues(alpha: 0.1),
+        Colors.black.withValues(alpha: 0.22),
+      ),
+      ZoneMarks.strong => (
+        Colors.white.withValues(alpha: 0.22),
+        Colors.black.withValues(alpha: 0.45),
+      ),
+      ZoneMarks.color => (
+        const Color(0xFF4ADE80).withValues(alpha: 0.18),
+        const Color(0xFFF85050).withValues(alpha: 0.2),
+      ),
+      ZoneMarks.line => (Colors.transparent, Colors.transparent),
+    };
+    // Sin stretch las cajas vacías se quedan con 0 de ancho y no se ve nada.
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [white(0.1), white(0.04)],
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [black(0.1), black(0.22)],
-              ),
-            ),
-          ),
-        ),
+        Expanded(child: ColoredBox(color: top)),
+        Expanded(child: ColoredBox(color: bottom)),
       ],
     );
   }

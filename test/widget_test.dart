@@ -258,6 +258,17 @@ void main() {
 
     // El panel de abajo ocupa la mitad inferior de la pantalla.
     final bottomPanel = tester.getRect(find.byType(PlayerCounter).last);
+
+    // El tono de la mitad que suma cubre el panel a lo ancho (se quedaba
+    // con 0 de ancho y no se veía).
+    final addHalf = find.descendant(
+      of: find.byType(PlayerCounter).last,
+      matching: find.byWidgetPredicate(
+        (w) =>
+            w is ColoredBox && w.color == Colors.white.withValues(alpha: 0.1),
+      ),
+    );
+    expect(tester.getSize(addHalf).width, greaterThan(bottomPanel.width / 2));
     await tester.tapAt(Offset(bottomPanel.left + 60, bottomPanel.top + 40));
     await tester.pump();
     expect(game.bottom.life, 21);
