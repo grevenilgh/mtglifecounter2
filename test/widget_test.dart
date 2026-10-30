@@ -235,6 +235,12 @@ void main() {
       CardFrame.rojo,
       CardFrame.artefacto,
     ));
+    // Dorado y amarillo, multicolor; naranja, artefacto.
+    expect(CardFrame.rankFor(const Color(0xFFD4AF37)).first, CardFrame.oro);
+    expect(
+      CardFrame.rankFor(const Color(0xFFB45309)).first,
+      CardFrame.artefacto,
+    );
   });
 
   test('cada skin lleva su icono', () {

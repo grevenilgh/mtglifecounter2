@@ -297,11 +297,12 @@ class _CardBands extends StatelessWidget {
   }
 
   // Franja de arriba o de abajo. Si el marco tiene tira horizontal, se pone
-  // dos veces, la segunda en espejo para que no se note la unión; si no, se
-  // gira la del lado.
+  // las veces que haga falta, una sí y otra no en espejo para que no se note
+  // la unión; si no, se gira la del lado.
   Widget _horizontal({required int turns}) {
     final asset = frame.horizontalAsset;
     if (asset == null) return _strip(turns: turns);
+    final length = frame.horizontalAspect * _kFrame;
     Widget half({bool mirror = false}) {
       final image = Image.asset(
         asset,
@@ -314,9 +315,14 @@ class _CardBands extends StatelessWidget {
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [half(), half(mirror: true)],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final copies = max(2, (constraints.maxWidth / length).ceil());
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [for (var i = 0; i < copies; i++) half(mirror: i.isOdd)],
+        );
+      },
     );
   }
 

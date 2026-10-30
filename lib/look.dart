@@ -99,15 +99,24 @@ enum CardFrame {
   rojo,
   verde,
   artefacto,
-  tierra;
+  tierra,
+
+  /// Multicolor: el dorado de las cartas de varios colores de Legends.
+  oro;
 
   String get asset => 'assets/images/marcos/$name.jpg';
 
   /// Tira horizontal para las franjas de arriba y abajo, si la textura tiene
-  /// dirección. El verde de Alpha va en bandas horizontales: girar la tira
-  /// del lado las convertía en rayas verticales que parecían cortes.
-  String? get horizontalAsset =>
-      this == verde ? 'assets/images/marcos/verde_h.jpg' : null;
+  /// dirección. El verde de Alpha y el oro de Legends van en bandas
+  /// horizontales: girar la tira del lado las convertía en rayas verticales
+  /// que parecían cortes.
+  String? get horizontalAsset => switch (this) {
+    verde || oro => 'assets/images/marcos/${name}_h.jpg',
+    _ => null,
+  };
+
+  /// Ancho entre alto de [horizontalAsset].
+  double get horizontalAspect => this == oro ? 290 / 35 : 450 / 33;
 
   /// Si su caja de texto es oscura (el rojo y la madera del verde): ahí el
   /// historial va en tinta clara y la caja se oscurece un poco para que se
@@ -130,8 +139,9 @@ enum CardFrame {
       return const [artefacto, tierra, negro];
     }
     if (h < 20 || h >= 330) return const [rojo, artefacto, negro];
-    if (h < 50) return const [artefacto, rojo, tierra];
-    if (h < 70) return const [blanco, artefacto, tierra];
+    // Naranjas y marrones: artefacto. Amarillos y dorados: multicolor.
+    if (h < 40) return const [artefacto, rojo, oro];
+    if (h < 70) return const [oro, artefacto, blanco];
     if (h < 170) return const [verde, azul, tierra];
     if (h < 250) return const [azul, verde, negro];
     // Morados y lilas: en Magic el negro tira a morado.
