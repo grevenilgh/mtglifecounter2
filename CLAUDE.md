@@ -39,10 +39,11 @@ Solo hay 3 archivos en `lib/` y el estado vive en `StatefulWidget`s. No se usa n
 - Reinicio: `ValueNotifier<bool> _resetNotifier`. Se invierte su valor y los `PlayerCounter` y el `NumberStepper` se suscriben con `addListener`. Si añades un widget que deba reiniciarse, suscríbelo así y quita el listener en `dispose`.
 - Después de cada cambio de vida, `onLifeChanged` vuelve a poner `_lifeChangeAmount` a 1. Es intencionado: la cantidad personalizada sirve para un solo golpe.
 
-## Assets
+## Assets y skins
 
 - Fondo: `assets/images/BackgroundBW.png`. Icono: `assets/images/icono2.png`.
 - `flutter_01.png` (en la raíz) es una captura y no se usa en el código.
+- La app tiene dos skins: **AlicanteMTG** (`main`) y **Full Tapped** (rama `fulltapped` / tag `skin-fulltapped`). Sus colores, fondos, iconos e ids están en [`branding/README.md`](branding/README.md) y sus imágenes en `branding/`. Si cambias colores, fondo, icono o id de la app, actualiza esa tabla. `branding/` está fuera de `assets/` a propósito para que no entre en el APK.
 
 ## Problemas conocidos
 
@@ -50,7 +51,7 @@ Solo hay 3 archivos en `lib/` y el estado vive en `StatefulWidget`s. No se usa n
 - `_rollDice` usa `nextInt(19) + 1`, que da de 1 a 19: **nunca sale 20**. Debería ser `nextInt(20) + 1`.
 - El botón de girar tiene el tooltip `'Reiniciar vidas'` copiado del botón de reinicio.
 - Se usa `withOpacity` y `textScaleFactor`, que están obsoletos en Flutter 3.27+. Los sustitutos son `withValues(alpha:)` y `textScaler: TextScaler.noScaling`.
-- El identificador de Android es `com.example.*`. Hay que cambiarlo antes de publicar en tiendas.
+- El `applicationId` de Android es `mtg.premodern.alicante.lifecounter`, pero el bundle id de iOS sigue siendo `com.example.mtglifecounter`.
 
 ## Convenciones
 
