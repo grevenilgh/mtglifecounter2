@@ -306,8 +306,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   ),
                 ]
               : [
+                  // El dado ya es el icono del D20 dentro de los sorteos.
                   BarAction(
-                    Icons.casino_outlined,
+                    Icons.shuffle,
                     'Sorteos: moneda, dado y duelo',
                     () => setState(() => _drawsOpen = true),
                   ),

@@ -167,9 +167,11 @@ class _CoinDrawState extends State<_CoinDraw>
   static const double _lift = 0.06;
   static const double _land = 0.72;
 
-  // Altura del vuelo y grosor del canto, en dp.
+  // Altura del vuelo, en dp.
   static const double _height = 190;
-  static const double _thickness = 12;
+
+  // Lo que queda echada hacia atrás en la mesa, en radianes.
+  static const double _rest = -0.5;
 
   late final AnimationController _c =
       AnimationController(
@@ -181,8 +183,10 @@ class _CoinDrawState extends State<_CoinDraw>
   bool _heads = true;
   bool _shown = false;
 
-  // Medias vueltas del vuelo: par si sale cara, impar si sale cruz.
-  int _halfTurns = 16;
+  // Medias vueltas desde la posición de partida, de dónde sale la tirada y
+  // dónde acaba: un número par enseña la cara y uno impar la cruz.
+  int _fromHalf = 0;
+  int _toHalf = 0;
 
   // Inclinación lateral del lanzamiento, distinta en cada tirada.
   double _tilt = 0;
@@ -215,7 +219,12 @@ class _CoinDrawState extends State<_CoinDraw>
     setState(() {
       _heads = heads;
       _shown = false;
-      _halfTurns = 2 * (7 + _random.nextInt(3)) + (heads ? 0 : 1);
+      // Sale de donde quedó la anterior y da entre 14 y 19 medias vueltas.
+      _fromHalf = _toHalf;
+      _toHalf =
+          _fromHalf +
+          2 * (7 + _random.nextInt(3)) +
+          ((heads ? 0 : 1) + _fromHalf) % 2;
       _tilt = (_random.nextDouble() * 2 - 1) * 0.22;
     });
     _c.forward(from: 0);
@@ -242,21 +251,22 @@ class _CoinDrawState extends State<_CoinDraw>
           animation: _c,
           builder: (context, _) {
             final t = _c.value;
-            final end = _halfTurns * pi;
+            final start = _fromHalf * pi;
+            final end = _toHalf * pi;
             double height; // dp sobre la mesa
-            double angle; // giro sobre el eje horizontal
+            double angle; // giro sobre el eje horizontal, sin la inclinación
             double press = 0; // aplastado del impulso
             double tilt; // inclinación lateral
             if (t < _lift) {
               press = sin(pi * t / _lift);
               height = 0;
-              angle = 0;
+              angle = start;
               tilt = 0;
             } else if (t < _land) {
               final p = (t - _lift) / (_land - _lift);
               // Parábola: sube y cae. El giro frena un poco al final.
               height = 4 * p * (1 - p) * _height;
-              angle = end * Curves.easeOutSine.transform(p);
+              angle = start + (end - start) * Curves.easeOutSine.transform(p);
               tilt = _tilt * sin(pi * p);
             } else {
               final q = (t - _land) / (1 - _land);
@@ -271,12 +281,10 @@ class _CoinDrawState extends State<_CoinDraw>
               angle = end + 0.42 * settle * sin(q * pi * 5);
               tilt = _tilt * 0.4 * settle * sin(q * pi * 3);
             }
+            // En la mesa queda algo echada hacia atrás, como vista desde la
+            // silla: así se le ve el grosor aunque esté quieta.
+            angle += _rest;
             final h = height / _height;
-            final showsHeads = cos(angle) >= 0;
-            // Lo que se ve del canto al inclinarse.
-            final edge = _thickness * sin(angle).abs();
-            final faceHeight = 200 * cos(angle).abs();
-            final edgeSide = sin(angle) * cos(angle) >= 0 ? 1.0 : -1.0;
             return Stack(
               clipBehavior: Clip.none,
               alignment: Alignment.center,
@@ -289,14 +297,14 @@ class _CoinDrawState extends State<_CoinDraw>
                     child: Transform.scale(
                       scale: 1 - 0.5 * h,
                       child: Container(
-                        width: 150,
-                        height: 22,
+                        width: 160,
+                        height: 24,
                         decoration: const BoxDecoration(
                           gradient: RadialGradient(
                             colors: [Color(0xD9000000), Color(0x00000000)],
                           ),
                           borderRadius: BorderRadius.all(
-                            Radius.elliptical(75, 11),
+                            Radius.elliptical(80, 12),
                           ),
                         ),
                       ),
@@ -310,52 +318,7 @@ class _CoinDrawState extends State<_CoinDraw>
                     scale: (1 + 0.38 * h) * (1 - 0.04 * press),
                     child: Transform.rotate(
                       angle: tilt,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          // El canto: una banda plateada pegada al disco.
-                          if (edge > 0.5)
-                            Transform.translate(
-                              offset: Offset(0, edgeSide * edge / 2),
-                              child: Container(
-                                width: 200,
-                                height: faceHeight + edge,
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.all(
-                                    Radius.elliptical(100, faceHeight / 2 + 1),
-                                  ),
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF4A4E52),
-                                      Color(0xFFB8BEC4),
-                                      Color(0xFF6B7075),
-                                      Color(0xFF3A3D40),
-                                    ],
-                                    stops: [0, 0.35, 0.7, 1],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          Transform(
-                            alignment: Alignment.center,
-                            transform: Matrix4.identity()
-                              ..setEntry(3, 2, 0.0011)
-                              ..rotateX(angle),
-                            child: Transform(
-                              // La cruz se pinta del revés para que, al
-                              // llegar girada, se vea derecha.
-                              alignment: Alignment.center,
-                              transform: showsHeads
-                                  ? Matrix4.identity()
-                                  : (Matrix4.identity()..rotateX(pi)),
-                              child: _CoinFace(
-                                heads: showsHeads,
-                                glint: (angle / (2 * pi)) % 1,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: _Coin3D(angle: angle),
                     ),
                   ),
                 ),
@@ -368,13 +331,93 @@ class _CoinDrawState extends State<_CoinDraw>
   }
 }
 
+/// La moneda como un disco de verdad: la cara delante, la cruz detrás y, entre
+/// las dos, el canto hecho de láminas finas. Todo con la misma perspectiva,
+/// así que el grosor se ve bien en cualquier giro. Se pinta de lo más lejano
+/// a lo más cercano.
+class _Coin3D extends StatelessWidget {
+  const _Coin3D({required this.angle});
+
+  /// Giro sobre el eje horizontal: 0 enseña la cara y pi la cruz.
+  final double angle;
+
+  static const double _size = 200;
+  static const double _thickness = 18;
+  static const int _slices = 16;
+
+  Matrix4 _at(double z, {bool back = false}) {
+    final m = Matrix4.identity()
+      ..setEntry(3, 2, 0.0011)
+      ..rotateX(angle)
+      ..translateByDouble(0, 0, z, 1);
+    // La cruz mira hacia atrás.
+    if (back) m.rotateX(pi);
+    return m;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Cuánto mira cada cara hacia quien la ve: de lado se oscurece.
+    final facing = cos(angle).abs();
+    final glint = (angle / (2 * pi)) % 1;
+    final heads = Transform(
+      alignment: Alignment.center,
+      transform: _at(-_thickness / 2),
+      child: _CoinFace(heads: true, glint: glint, facing: facing),
+    );
+    final tails = Transform(
+      alignment: Alignment.center,
+      transform: _at(_thickness / 2, back: true),
+      child: _CoinFace(heads: false, glint: 1 - glint, facing: facing),
+    );
+    final rim = [
+      for (var i = 0; i <= _slices; i++)
+        Transform(
+          alignment: Alignment.center,
+          transform: _at(-_thickness / 2 + _thickness * i / _slices),
+          child: Container(
+            width: _size,
+            height: _size,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              // Estrías del canto: una lámina clara y otra oscura, y luz de
+              // arriba.
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: i.isEven
+                    ? const [Color(0xFFD5DADF), Color(0xFF6E7378)]
+                    : const [Color(0xFFA9AFB5), Color(0xFF4C5054)],
+              ),
+            ),
+          ),
+        ),
+    ];
+    // La cara está delante (más cerca) mientras el coseno es positivo.
+    final headsNear = cos(angle) >= 0;
+    return Stack(
+      alignment: Alignment.center,
+      children: headsNear
+          ? [tails, ...rim.reversed, heads]
+          : [heads, ...rim, tails],
+    );
+  }
+}
+
 class _CoinFace extends StatelessWidget {
-  const _CoinFace({required this.heads, required this.glint});
+  const _CoinFace({
+    required this.heads,
+    required this.glint,
+    required this.facing,
+  });
 
   final bool heads;
 
   /// Dónde va el brillo que cruza la cara al girar, de 0 a 1.
   final double glint;
+
+  /// 1 si mira de frente y 0 si está de canto.
+  final double facing;
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +445,7 @@ class _CoinFace extends StatelessWidget {
                   : 'assets/images/sorteos/moneda-cruz.jpg',
               fit: BoxFit.cover,
             ),
+            // Brillo que cruza la cara.
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -414,6 +458,10 @@ class _CoinFace extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+            // Sombra al ponerse de canto.
+            ColoredBox(
+              color: Colors.black.withValues(alpha: 0.5 * (1 - facing)),
             ),
           ],
         ),

@@ -975,7 +975,7 @@ class _PreviewState extends State<_Preview> {
             )
           : null,
       trailing: [
-        BarAction(Icons.casino_outlined, 'Sorteos', none),
+        BarAction(Icons.shuffle, 'Sorteos', none),
         BarAction(Icons.settings_outlined, 'Ajustes', none),
       ],
     );
