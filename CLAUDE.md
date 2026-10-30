@@ -22,7 +22,11 @@ flutter build apk --release           # APK de Android
 dart run flutter_launcher_icons       # regenerar iconos desde assets/images/icono2.png
 ```
 
-SDK de Dart: `^3.8.1`. Flutter no está en el PATH de esta máquina, así que hay que instalarlo o añadirlo antes de ejecutar estos comandos.
+SDK de Dart: `^3.8.1`.
+
+**Entorno en Windows:** `setup.bat` instala Git y Flutter (en `C:\src\flutter`, añadido al PATH del usuario) y ejecuta `pub get`. `setup-android.bat` añade el JDK 17 y el SDK de Android sin Android Studio. `setup.bat -Emulator` crea además el AVD `mtg_pixel`. La lógica está en `scripts/setup.ps1`.
+
+**Ejecutar:** `run.bat` abre la app en Chrome con una ventana de tamaño móvil. `run.bat android` la lanza en el móvil por USB o en el emulador. La lógica está en `scripts/run.ps1`. Los `.ps1` deben guardarse en UTF-8 **con BOM** y CRLF (ver `.gitattributes`), porque PowerShell 5.1 lee mal los acentos sin BOM.
 
 ## Arquitectura
 
