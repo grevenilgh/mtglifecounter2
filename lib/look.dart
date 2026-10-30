@@ -10,8 +10,9 @@ enum AppTheme {
   /// Borde nuevo: imagen grande, número blanco y barra flotante.
   modern('Borde nuevo'),
 
-  /// Borde antiguo («Jaspe fino»): marco jaspeado de carta de 1993/94.
-  classic('Borde antiguo');
+  /// Borde antiguo: cada panel es una carta de 1993/94 tumbada, con el marco
+  /// de una carta de verdad.
+  classic('Old Border');
 
   const AppTheme(this.label);
 
@@ -101,6 +102,16 @@ enum CardFrame {
   tierra;
 
   String get asset => 'assets/images/marcos/$name.jpg';
+
+  /// Tira horizontal para las franjas de arriba y abajo, si la textura tiene
+  /// dirección. El verde de Alpha va en bandas horizontales: girar la tira
+  /// del lado las convertía en rayas verticales que parecían cortes.
+  String? get horizontalAsset =>
+      this == verde ? 'assets/images/marcos/verde_h.jpg' : null;
+
+  /// La caja de texto de una carta de ese color, de pie: es el fondo del
+  /// historial.
+  String get textBoxAsset => 'assets/images/marcos/caja_$name.jpg';
 
   /// Los marcos que mejor van con [color], del mejor al peor.
   static List<CardFrame> rankFor(Color color) {

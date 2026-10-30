@@ -802,40 +802,68 @@ class _DuelDrawState extends State<_DuelDraw>
           final turn = ((ms - _dealMs) / _flipMs).clamp(0.0, 1.0);
           final eased = Curves.easeOutCubic.transform(turn);
           final angle = pi * (1 - eased);
-          final crown = wins && ms >= _dealMs + _flipMs / 2;
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AnimatedOpacity(
-                opacity: crown ? 1 : 0,
-                duration: const Duration(milliseconds: 300),
-                child: const Icon(Icons.emoji_events, color: kAccent, size: 40),
-              ),
-              Transform(
-                alignment: Alignment.center,
-                transform: Matrix4.identity()
-                  ..setEntry(3, 2, 0.001)
-                  ..rotateY(angle),
-                child: _DuelCard(gesture: card, faceUp: angle < pi / 2),
-              ),
-              const SizedBox(height: 6),
-              AnimatedOpacity(
-                opacity: crown ? 1 : 0,
-                duration: const Duration(milliseconds: 300),
-                child: Text(
-                  'Empiezas tú',
-                  style: withFont(
-                    'Barlow Condensed',
-                    const TextStyle(
-                      color: kAccent,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 2,
+          final shown = ms >= _dealMs + _flipMs / 2;
+          // La carta ocupa todo el sitio: el aviso de quién gana va encima
+          // de ella, no aparte, y la que pierde se apaga un poco.
+          return Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                AnimatedOpacity(
+                  opacity: shown && !wins ? 0.55 : 1,
+                  duration: const Duration(milliseconds: 300),
+                  child: Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.001)
+                      ..rotateY(angle),
+                    child: _DuelCard(gesture: card, faceUp: angle < pi / 2),
+                  ),
+                ),
+                Positioned(
+                  top: -20,
+                  child: AnimatedOpacity(
+                    opacity: shown && wins ? 1 : 0,
+                    duration: const Duration(milliseconds: 300),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(12, 4, 16, 4),
+                      decoration: BoxDecoration(
+                        color: kAccent,
+                        borderRadius: BorderRadius.circular(999),
+                        boxShadow: const [
+                          BoxShadow(color: Color(0x99000000), blurRadius: 10),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.emoji_events,
+                            color: Color(0xFF1A1306),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'GANA',
+                            style: withFont(
+                              'Barlow Condensed',
+                              const TextStyle(
+                                color: Color(0xFF1A1306),
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 2,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           );
         },
       );

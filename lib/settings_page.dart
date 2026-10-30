@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mtglifecounter/app_settings.dart';
+import 'package:mtglifecounter/center_bar.dart';
+import 'package:mtglifecounter/counter_layout.dart';
+import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/timer_view.dart';
 
 const Color kSettingsBackground = Color(0xFF111113);
 const Color kCardColor = Color(0xFF1C1C1E);
@@ -28,10 +32,21 @@ const List<Color> kSwatches = [
   Color(0xFF424242),
 ];
 
+/// Los temas tal como se eligen: el borde nuevo sale ya con su variante.
+const _themeChoices = [
+  ('De siempre', AppTheme.original, null),
+  ('Cristal', AppTheme.modern, ModernVariant.glass),
+  ('Tarjetas', AppTheme.modern, ModernVariant.cards),
+  ('Old Border', AppTheme.classic, null),
+];
+
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.settings});
+  const SettingsPage({super.key, required this.settings, required this.timer});
 
   final AppSettings settings;
+
+  /// El reloj de la partida, para que la miniatura lo enseñe igual.
+  final RoundTimer timer;
 
   /// Abre la galería y pone la foto elegida de fondo. Se pide ya reducida
   /// porque se guarda en las preferencias.
@@ -80,43 +95,78 @@ class SettingsPage extends StatelessWidget {
 
   Widget _design(BuildContext context) {
     final custom = settings.customSkin;
+    // El tema y la miniatura van fijos arriba: así se ve el resultado de
+    // todo lo que se toca más abajo sin salir de Ajustes.
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 104,
+                child: _Preview(settings: settings, timer: timer),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.style_outlined, color: kAccent, size: 20),
+                        SizedBox(width: 10),
+                        Text(
+                          'Tema',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    _Choices(
+                      children: [
+                        for (final (label, theme, variant) in _themeChoices)
+                          _Chip(
+                            label: label,
+                            selected:
+                                settings.theme == theme &&
+                                (variant == null ||
+                                    settings.modernVariant == variant),
+                            onTap: () {
+                              if (variant != null) {
+                                settings.modernVariant = variant;
+                              }
+                              settings.theme = theme;
+                            },
+                          ),
+                      ],
+                    ),
+                    if (settings.theme == AppTheme.classic)
+                      const _Help(
+                        'Cada jugador es una carta antigua tumbada, con el '
+                        'marco que mejor va con su color.',
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const Divider(height: 1, color: Color(0xFF2C2C2E)),
+        Expanded(child: _designOptions(context, custom)),
+      ],
+    );
+  }
+
+  Widget _designOptions(BuildContext context, Skin custom) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
       children: [
-        _Group(
-          title: 'Tema',
-          icon: Icons.style_outlined,
-          children: [
-            _Choices(
-              children: [
-                for (final theme in AppTheme.values)
-                  _Chip(
-                    label: theme.label,
-                    selected: settings.theme == theme,
-                    onTap: () => settings.theme = theme,
-                  ),
-              ],
-            ),
-            if (settings.theme == AppTheme.modern) ...[
-              const _Label('Variante'),
-              _Choices(
-                children: [
-                  for (final variant in ModernVariant.values)
-                    _Chip(
-                      label: variant.label,
-                      selected: settings.modernVariant == variant,
-                      onTap: () => settings.modernVariant = variant,
-                    ),
-                ],
-              ),
-            ],
-            if (settings.theme == AppTheme.classic)
-              const _Help(
-                'Cada jugador lleva el marco de carta antigua que mejor va con '
-                'su color.',
-              ),
-          ],
-        ),
         _Group(
           title: 'Skin',
           icon: Icons.color_lens_outlined,
@@ -859,6 +909,113 @@ class _SwitchRow extends StatelessWidget {
       onChanged: onChanged,
       activeThumbColor: Colors.white,
       activeTrackColor: kAccent,
+    );
+  }
+}
+
+/// Miniatura del contador con los ajustes de ahora y una partida de ejemplo.
+/// Es la pantalla de verdad en pequeño, así que no responde a toques.
+class _Preview extends StatefulWidget {
+  const _Preview({required this.settings, required this.timer});
+
+  final AppSettings settings;
+  final RoundTimer timer;
+
+  @override
+  State<_Preview> createState() => _PreviewState();
+}
+
+class _PreviewState extends State<_Preview> {
+  // Tamaño de pantalla de un móvil normal; luego se encoge a la miniatura.
+  static const Size _screen = Size(412, 880);
+
+  final GameState _game = GameState();
+
+  @override
+  void initState() {
+    super.initState();
+    _game.top
+      ..change(-5)
+      ..commit()
+      ..change(2)
+      ..commit();
+    _game.bottom
+      ..change(-3)
+      ..commit()
+      ..change(-6)
+      ..commit();
+    _game.toggleRotation();
+  }
+
+  @override
+  void dispose() {
+    _game.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final settings = widget.settings;
+    final look = settings.look;
+    void none() {}
+    final bar = CenterBar(
+      look: look,
+      color: barColorFor(settings),
+      alpha: settings.barOpacity / 100,
+      leading: [
+        BarAction(Icons.refresh, 'Reiniciar partida', none),
+        BarAction(Icons.swap_vert, 'Girar el panel de arriba', none),
+      ],
+      timer: settings.showTimer
+          ? TimerButton(
+              timer: widget.timer,
+              look: look,
+              warningEnabled: settings.timerWarning,
+              onTap: none,
+            )
+          : null,
+      trailing: [
+        BarAction(Icons.casino_outlined, 'Sorteos', none),
+        BarAction(Icons.settings_outlined, 'Ajustes', none),
+      ],
+    );
+    return Semantics(
+      label: 'Vista previa del contador',
+      child: ExcludeSemantics(
+        child: IgnorePointer(
+          child: Container(
+            padding: const EdgeInsets.all(3),
+            decoration: BoxDecoration(
+              color: const Color(0xFF2C2C2E),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(11),
+              child: AspectRatio(
+                aspectRatio: _screen.width / _screen.height,
+                child: FittedBox(
+                  child: SizedBox.fromSize(
+                    size: _screen,
+                    child: MediaQuery.removePadding(
+                      context: context,
+                      removeTop: true,
+                      removeBottom: true,
+                      child: ColoredBox(
+                        color: Colors.black,
+                        child: CounterLayout(
+                          settings: settings,
+                          game: _game,
+                          bar: bar,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

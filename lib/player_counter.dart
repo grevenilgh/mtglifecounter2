@@ -170,6 +170,7 @@ class _PlayerCounterState extends State<PlayerCounter>
     final zone = _Zone(
       player: widget.player,
       color: widget.color,
+      frame: widget.frame,
       style: style,
       hit: _hit,
       gained: () => _gained,
@@ -186,7 +187,6 @@ class _PlayerCounterState extends State<PlayerCounter>
         ),
         AppTheme.modern => zone,
         AppTheme.classic => _ClassicFrame(
-          frame: widget.frame,
           alpha: style.frameOpacity,
           child: zone,
         ),
@@ -200,15 +200,24 @@ class _PlayerCounterState extends State<PlayerCounter>
 double _historyReserve(Look look) => switch (look.theme) {
   AppTheme.original => 76,
   AppTheme.modern => 72,
-  AppTheme.classic => 80,
+  AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
 };
 
 /// Margen que deja el número a la derecha para no pisar el historial.
 double _numberInset(Look look) => switch (look.theme) {
   AppTheme.original => 76,
   AppTheme.modern => 72,
-  AppTheme.classic => 70,
+  AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
 };
+
+// Medidas de la carta tumbada del borde antiguo, en dp: el marco de arriba,
+// abajo y a la derecha, la franja del nombre a la izquierda, la de la línea
+// de tipo entre las dos ventanas y el ancho de la caja de texto (el
+// historial).
+const double _kFrame = 16;
+const double _kNameBand = 24;
+const double _kTypeBand = 14;
+const double _kTextBox = 64;
 
 /// Tarjeta redondeada con el borde y el brillo del color del jugador.
 class _CardFrame extends StatelessWidget {
@@ -236,26 +245,21 @@ class _CardFrame extends StatelessWidget {
   }
 }
 
-/// Marco de carta antigua: el borde negro de la carta, el marco gordo con la
-/// textura de su color (ver [CardFrame]) y una ventana biselada para la imagen.
+/// Borde negro de la carta antigua. El marco de color lo pintan las franjas
+/// de [_CardBands] dentro del panel.
 class _ClassicFrame extends StatelessWidget {
-  const _ClassicFrame({
-    required this.frame,
-    required this.alpha,
-    required this.child,
-  });
+  const _ClassicFrame({required this.alpha, required this.child});
 
-  final CardFrame frame;
   final double alpha;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: alpha),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         boxShadow: const [
           BoxShadow(
             color: Color(0xB3000000),
@@ -264,36 +268,115 @@ class _ClassicFrame extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage(frame.asset),
-              // Las texturas están a 1,5 píxeles por dp: así el dibujo
-              // tiene el mismo tamaño en todos los móviles.
-              fit: BoxFit.none,
-              scale: 1.5,
-              repeat: ImageRepeat.repeat,
-              opacity: alpha,
-            ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(6), child: child),
+    );
+  }
+}
+
+/// El marco de una carta antigua tumbada: la franja del nombre a la
+/// izquierda, la de la línea de tipo entre la ilustración (el número) y la
+/// caja de texto (el historial), y los bordes. Todo sale de la tira de marco
+/// de una carta de verdad ([CardFrame]), girada en las franjas horizontales.
+class _CardBands extends StatelessWidget {
+  const _CardBands({required this.frame, required this.alpha});
+
+  final CardFrame frame;
+  final double alpha;
+
+  // La tira es el borde derecho de la carta: su filo exterior (con la línea
+  // clara) queda a la derecha. [turns] la gira de 90 en 90 grados.
+  Widget _strip({int turns = 0, bool flip = false}) {
+    Widget image = Image.asset(
+      frame.asset,
+      fit: BoxFit.cover,
+      opacity: AlwaysStoppedAnimation(alpha),
+      filterQuality: FilterQuality.medium,
+    );
+    if (flip) image = Transform.flip(flipX: true, child: image);
+    return turns == 0 ? image : RotatedBox(quarterTurns: turns, child: image);
+  }
+
+  // Franja de arriba o de abajo. Si el marco tiene tira horizontal, se pone
+  // dos veces, la segunda en espejo para que no se note la unión; si no, se
+  // gira la del lado.
+  Widget _horizontal({required int turns}) {
+    final asset = frame.horizontalAsset;
+    if (asset == null) return _strip(turns: turns);
+    Widget half({bool mirror = false}) {
+      final image = Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        opacity: AlwaysStoppedAnimation(alpha),
+        filterQuality: FilterQuality.medium,
+      );
+      return Expanded(
+        child: mirror ? Transform.flip(flipX: true, child: image) : image,
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [half(), half(mirror: true)],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const bevel = BoxDecoration(
+      border: Border(
+        top: BorderSide(color: Color(0xA6000000), width: 2),
+        left: BorderSide(color: Color(0xA6000000), width: 2),
+        right: BorderSide(color: Color(0x73FFF0D2), width: 2),
+        bottom: BorderSide(color: Color(0x73FFF0D2), width: 2),
+      ),
+    );
+    return IgnorePointer(
+      child: Stack(
+        children: [
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: _kNameBand,
+            child: _strip(flip: true),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(13),
-            child: Container(
-              // Bisel: sombra arriba e izquierda, luz abajo y derecha.
-              decoration: const BoxDecoration(
-                border: Border(
-                  top: BorderSide(color: Color(0xA6000000), width: 3),
-                  left: BorderSide(color: Color(0xA6000000), width: 3),
-                  right: BorderSide(color: Color(0x73FFF0D2), width: 3),
-                  bottom: BorderSide(color: Color(0x73FFF0D2), width: 3),
-                ),
-              ),
-              child: ClipRect(child: child),
-            ),
+          Positioned(
+            right: 0,
+            top: 0,
+            bottom: 0,
+            width: _kFrame,
+            child: _strip(),
           ),
-        ),
+          Positioned(
+            right: _kFrame + _kTextBox,
+            top: 0,
+            bottom: 0,
+            width: _kTypeBand,
+            child: _strip(),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            top: 0,
+            height: _kFrame,
+            child: _horizontal(turns: 3),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: _kFrame,
+            child: _horizontal(turns: 1),
+          ),
+          // La ventana de la ilustración, hundida en el marco.
+          Positioned(
+            left: _kNameBand,
+            top: _kFrame,
+            bottom: _kFrame,
+            right: _kFrame + _kTextBox + _kTypeBand,
+            child: const DecoratedBox(decoration: bevel),
+          ),
+        ],
       ),
     );
   }
@@ -305,6 +388,7 @@ class _Zone extends StatelessWidget {
   const _Zone({
     required this.player,
     required this.color,
+    required this.frame,
     required this.style,
     required this.hit,
     required this.gained,
@@ -317,18 +401,26 @@ class _Zone extends StatelessWidget {
   final Animation<double> hit;
   final bool Function() gained;
   final ScrollController scrollController;
+  final CardFrame frame;
 
   @override
   Widget build(BuildContext context) {
     final look = style.look;
+    // En el borde antiguo el número va en la ventana de la ilustración, que
+    // empieza tras la franja del nombre.
+    final double left = look.isClassic ? _kNameBand : 0;
     final background = style.background;
     final inset = _numberInset(look);
     // Las filas de botones quedan lejos de la barra en el borde nuevo, que
     // flota encima de los paneles.
     // En cristal la barra flota sobre el borde de dentro del panel, que es
     // el de arriba o el de abajo según esté girado: se deja sitio en los dos.
-    final double plusTop = look.isGlass ? 40 : (look.isClassic ? 14 : 18);
-    final double minusBottom = look.isGlass ? 40 : (look.isClassic ? 14 : 18);
+    final double plusTop = look.isGlass
+        ? 40
+        : (look.isClassic ? _kFrame + 8 : 18);
+    final double minusBottom = look.isGlass
+        ? 40
+        : (look.isClassic ? _kFrame + 8 : 18);
     return Stack(
       fit: StackFit.expand,
       children: [
@@ -371,12 +463,13 @@ class _Zone extends StatelessWidget {
         if (style.zoneMarks != ZoneMarks.line) _Halves(marks: style.zoneMarks),
         if (style.zoneMarks.hasLine)
           Padding(
-            padding: EdgeInsets.only(left: 10, right: inset + 4),
+            padding: EdgeInsets.only(left: left + 10, right: inset + 4),
             child: Center(child: _MidLine(classic: look.isClassic)),
           ),
+        if (look.isClassic) _CardBands(frame: frame, alpha: style.frameOpacity),
         Padding(
           padding: EdgeInsets.fromLTRB(
-            12,
+            left + 12,
             plusTop + 50,
             inset + 4,
             minusBottom + 50,
@@ -393,7 +486,7 @@ class _Zone extends StatelessWidget {
         ),
         Positioned(
           top: plusTop,
-          left: 0,
+          left: left,
           right: inset,
           child: Center(
             child: _Pip(look: look, color: color, sign: '+'),
@@ -401,7 +494,7 @@ class _Zone extends StatelessWidget {
         ),
         Positioned(
           bottom: minusBottom,
-          left: 0,
+          left: left,
           right: inset,
           child: Center(
             child: _Pip(look: look, color: color, sign: '−'),
@@ -433,6 +526,7 @@ class _Zone extends StatelessWidget {
         // Burbuja con el cambio que aún no está en el historial, en el centro
         // del panel, encima del número.
         Positioned.fill(
+          left: left,
           right: inset,
           child: IgnorePointer(
             child: Center(
@@ -451,6 +545,7 @@ class _Zone extends StatelessWidget {
           player: player,
           look: look,
           color: color,
+          frame: frame,
           alpha: style.historyOpacity,
           controller: scrollController,
         ),
@@ -793,6 +888,7 @@ class _History extends StatelessWidget {
     required this.player,
     required this.look,
     required this.color,
+    required this.frame,
     required this.alpha,
     required this.controller,
   });
@@ -801,6 +897,7 @@ class _History extends StatelessWidget {
   final Look look;
   final Color color;
   final double alpha;
+  final CardFrame frame;
   final ScrollController controller;
 
   @override
@@ -853,96 +950,30 @@ class _History extends StatelessWidget {
         ),
       ),
       AppTheme.classic => Positioned(
-        top: 8,
-        bottom: 8,
-        right: 8,
-        width: 60,
-        // La caja de texto de los artefactos antiguos: pergamino gris con
-        // manchas, y un bisel como si estuviera hundida en el marco.
-        child: _Layers(layers: _artifactBox(alpha), child: list),
+        top: _kFrame,
+        bottom: _kFrame,
+        right: _kFrame,
+        width: _kTextBox,
+        // La caja de texto de la carta de su marco (agua en la azul, madera
+        // en la verde...), con un bisel como si estuviera hundida en él.
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(frame.textBoxAsset),
+              fit: BoxFit.cover,
+              opacity: alpha,
+            ),
+            border: const Border(
+              top: BorderSide(color: Color(0xCC2A2218), width: 2),
+              left: BorderSide(color: Color(0xCC2A2218), width: 2),
+              right: BorderSide(color: Color(0x99F5F0E4), width: 2),
+              bottom: BorderSide(color: Color(0x99F5F0E4), width: 2),
+            ),
+          ),
+          child: list,
+        ),
       ),
     };
-  }
-}
-
-/// Capas de la caja de texto de los artefactos: pergamino gris con manchas
-/// de luz y sombra y un bisel hundido.
-List<Decoration> _artifactBox(double alpha) => [
-  BoxDecoration(
-    gradient: LinearGradient(
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-      colors: [
-        const Color(0xFFECE6D8).withValues(alpha: alpha),
-        const Color(0xFFCBC2AF).withValues(alpha: alpha),
-      ],
-    ),
-  ),
-  BoxDecoration(
-    gradient: RadialGradient(
-      center: const Alignment(-0.6, -0.5),
-      radius: 0.9,
-      colors: [
-        Colors.white.withValues(alpha: 0.5 * alpha),
-        Colors.white.withValues(alpha: 0),
-      ],
-    ),
-  ),
-  BoxDecoration(
-    gradient: RadialGradient(
-      center: const Alignment(0.7, 0.1),
-      radius: 0.7,
-      colors: [
-        const Color(0xFF5A4E3C).withValues(alpha: 0.3 * alpha),
-        const Color(0x005A4E3C),
-      ],
-    ),
-  ),
-  BoxDecoration(
-    gradient: RadialGradient(
-      center: const Alignment(-0.3, 0.75),
-      radius: 0.8,
-      colors: [
-        const Color(0xFF5A4E3C).withValues(alpha: 0.26 * alpha),
-        const Color(0x005A4E3C),
-      ],
-    ),
-  ),
-  BoxDecoration(
-    gradient: RadialGradient(
-      center: const Alignment(0.4, -0.85),
-      radius: 0.5,
-      colors: [
-        Colors.white.withValues(alpha: 0.25 * alpha),
-        Colors.white.withValues(alpha: 0),
-      ],
-    ),
-  ),
-  // El bisel: sombra arriba e izquierda, luz abajo y derecha.
-  const BoxDecoration(
-    border: Border(
-      top: BorderSide(color: Color(0xCC4A4033), width: 2),
-      left: BorderSide(color: Color(0xCC4A4033), width: 2),
-      right: BorderSide(color: Color(0xCCF5F0E4), width: 2),
-      bottom: BorderSide(color: Color(0xCCF5F0E4), width: 2),
-    ),
-  ),
-];
-
-/// Pinta [layers] una encima de otra detrás de [child].
-class _Layers extends StatelessWidget {
-  const _Layers({required this.layers, required this.child});
-
-  final List<Decoration> layers;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget result = child;
-    for (final layer in layers.reversed) {
-      result = DecoratedBox(decoration: layer, child: result);
-    }
-    return result;
   }
 }
 

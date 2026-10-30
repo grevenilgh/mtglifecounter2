@@ -1,19 +1,16 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mtglifecounter/app_icon.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
+import 'package:mtglifecounter/counter_layout.dart';
 import 'package:mtglifecounter/draws.dart';
 import 'package:mtglifecounter/game_state.dart';
-import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/number_stepper.dart';
-import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
-import 'package:mtglifecounter/skin.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -112,7 +109,6 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ValueNotifier<bool> _resetNotifier = ValueNotifier<bool>(false);
   // La pantalla entera, para que los paneles enseñen su trozo de la imagen.
-  final GlobalKey _screenKey = GlobalKey();
   int _lifeChangeAmount = 1;
   // La barra enseña los sorteos en vez de sus botones normales.
   bool _drawsOpen = false;
@@ -189,7 +185,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) => SettingsPage(settings: widget.settings),
+        builder: (context) =>
+            SettingsPage(settings: widget.settings, timer: widget.timer),
       ),
     );
   }
@@ -241,29 +238,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     return ListenableBuilder(
       listenable: Listenable.merge([settings, game]),
       builder: (context, _) {
-        final skin = settings.skin;
         final look = settings.look;
-        final style = PanelStyle(
-          look: look,
-          background: settings.backgroundOf(skin),
-          backgroundMode: settings.backgroundMode,
-          imageOpacity: settings.imageOpacity / 100,
-          frameOpacity: settings.frameOpacity / 100,
-          historyOpacity: settings.historyOpacity / 100,
-          zoneMarks: settings.zoneMarks,
-          focus: settings.focus,
-          animations: settings.animations,
-          screenKey: _screenKey,
-        );
         // Sin la cantidad por toque en la barra, cada toque cuenta 1.
         final amount = settings.showStepper ? _lifeChangeAmount : 1;
-        // En el borde antiguo la barra es de cuero, salvo en la personalizada.
-        final barColor = look.isClassic && skin.id != Skin.customDefault.id
-            ? const Color(0xFF4A3420)
-            : skin.bar;
         final bar = CenterBar(
           look: look,
-          color: barColor,
+          color: barColorFor(settings),
           alpha: settings.barOpacity / 100,
           leading: _drawsOpen
               ? [
@@ -334,59 +314,14 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
                 ],
         );
-        // En el borde antiguo cada jugador lleva el marco de carta que mejor
-        // va con su color, y nunca el mismo que el otro.
-        final frames = CardFrame.forPlayers(skin.top, skin.bottom);
-        Widget panel(PlayerState player, Color color, CardFrame frame) =>
-            PlayerCounter(
-              player: player,
-              color: color,
-              frame: frame,
-              style: style,
-              lifeChangeAmount: amount,
-              onLifeChanged: _onLifeChanged,
-            );
         return Scaffold(
           backgroundColor: Colors.black,
-          body: Stack(
-            key: _screenKey,
-            fit: StackFit.expand,
-            children: [
-              ScreenBackground(skin: skin, style: style),
-              // El contenido de la app se coloca dentro de un SafeArea
-              SafeArea(
-                child: Padding(
-                  padding: switch (look.theme) {
-                    AppTheme.original => EdgeInsets.zero,
-                    AppTheme.modern =>
-                      look.isCards ? const EdgeInsets.all(12) : EdgeInsets.zero,
-                    // El marco de carta es gordo: ocupa el margen de antes.
-                    AppTheme.classic => const EdgeInsets.all(5),
-                  },
-                  child: Stack(
-                    children: [
-                      Column(
-                        children: [
-                          Expanded(
-                            child: Transform.rotate(
-                              angle: game.rotated ? pi : 0,
-                              child: panel(game.top, skin.top, frames.$1),
-                            ),
-                          ),
-                          SizedBox(height: look.barGap),
-                          Expanded(
-                            child: panel(game.bottom, skin.bottom, frames.$2),
-                          ),
-                        ],
-                      ),
-                      // La barra va centrada: en el hueco entre los paneles
-                      // o, en cristal, flotando encima.
-                      Align(child: bar),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+          body: CounterLayout(
+            settings: settings,
+            game: game,
+            bar: bar,
+            lifeChangeAmount: amount,
+            onLifeChanged: _onLifeChanged,
           ),
         );
       },
