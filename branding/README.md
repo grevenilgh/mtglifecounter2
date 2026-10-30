@@ -1,5 +1,7 @@
 # Skins de la app
 
+> **Desde octubre de 2026 hay una sola app** y las skins se eligen en Ajustes. Sus colores viven en `lib/skin.dart` y el fondo de Full Tapped se ha copiado a `assets/images/tap.png`. La tabla de abajo es el registro de cómo se publicaron las dos apps por separado. Nombre, icono e id ya no cambian por skin: la app sigue siendo `AlicanteMTG` / `mtg.premodern.alicante.lifecounter`.
+
 La app se ha publicado con dos "skins". Cambian el fondo, los colores de los paneles, el icono, el nombre y el id de la app; la lógica es la misma. Este archivo guarda los valores de cada una para poder recuperarlas aunque se modifique el código.
 
 | | **AlicanteMTG** (rama `main`) | **Full Tapped** (rama `fulltapped`, tag `skin-fulltapped`) |

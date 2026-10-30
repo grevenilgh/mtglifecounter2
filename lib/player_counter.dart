@@ -1,21 +1,22 @@
-// Puedes crear este widget en un archivo separado para mayor orden
-
-import 'package:flutter/material.dart';
-import 'package:auto_size_text/auto_size_text.dart';
 import 'dart:async';
 
+import 'package:auto_size_text/auto_size_text.dart';
+import 'package:flutter/material.dart';
+import 'package:mtglifecounter/game_state.dart';
+
+/// Ancho de la franja del historial. No cuenta como zona de toque.
+const double kHistoryWidth = 76;
+
 class PlayerCounter extends StatefulWidget {
-  final int initialLife;
+  final PlayerState player;
   final Color color;
-  final ValueNotifier<bool> resetNotifier;
   final int lifeChangeAmount;
   final VoidCallback onLifeChanged;
 
   const PlayerCounter({
     super.key,
-    required this.initialLife,
+    required this.player,
     required this.color,
-    required this.resetNotifier,
     required this.lifeChangeAmount,
     required this.onLifeChanged,
   });
@@ -25,38 +26,50 @@ class PlayerCounter extends StatefulWidget {
 }
 
 class _PlayerCounterState extends State<PlayerCounter> {
-  late int _life;
-  late int _lifeOld;
-  List<String> _history = [];
   final ScrollController _scrollController = ScrollController();
 
   // Variables para la lógica de debounce
   Timer? _debounceTimer;
+  int _historyLength = 0;
 
   @override
   void initState() {
     super.initState();
-    _life = widget.initialLife;
-    _lifeOld = widget.initialLife;
-    widget.resetNotifier.addListener(_reset);
+    _historyLength = widget.player.history.length;
+    widget.player.addListener(_onPlayerChanged);
+    // Si la partida se ha recuperado, el historial empieza mostrando lo último.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+    });
   }
 
   @override
   void dispose() {
-    // 3. ¡Muy importante! Se desuscribe cuando el widget se elimina
-    widget.resetNotifier.removeListener(_reset);
-    _scrollController.dispose(); // También liberamos el controlador de scroll
-    _debounceTimer
-        ?.cancel(); // Cancelamos el temporizador al salir para evitar errores
+    widget.player.removeListener(_onPlayerChanged);
+    _scrollController.dispose();
+    _debounceTimer?.cancel();
     super.dispose();
   }
 
-  void _reset() {
-    setState(() {
-      _life = widget.initialLife;
-      _lifeOld = widget.initialLife;
-      _history = [];
-    });
+  void _onPlayerChanged() {
+    final length = widget.player.history.length;
+    if (length < _historyLength) {
+      // Se ha reiniciado la partida: lo que estuviera agrupándose ya no vale.
+      _debounceTimer?.cancel();
+    } else if (length > _historyLength) {
+      // Realizamos el scroll al final del historial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      });
+    }
+    _historyLength = length;
   }
 
   void _onTap(TapDownDetails details) {
@@ -64,56 +77,26 @@ class _PlayerCounterState extends State<PlayerCounter> {
     final height = context.size!.height;
     final tapX = details.localPosition.dx;
     final tapY = details.localPosition.dy;
-    int change;
-    if (tapX < width - 78) {
-      if (tapY < height / 2) {
-        change = widget.lifeChangeAmount; // Toca la mitad izquierda, resta
-      } else {
-        change = -1 * (widget.lifeChangeAmount); // Toca la mitad derecha, suma
-      }
+    if (tapX >= width - kHistoryWidth) return;
 
-      // Calcula el nuevo valor de vida
-      final newLife = _life + change;
-
-      // Comprueba si el nuevo valor está dentro del rango permitido
-      if (newLife >= -999 && newLife <= 999) {
-        setState(() {
-          _life += change;
-
-          // Llamamos al callback para notificar al padre
-          widget.onLifeChanged();
-        });
-      }
-
-      // Cancelamos el temporizador anterior si existe
-      _debounceTimer?.cancel();
-
-      // Creamos un nuevo temporizador que se disparará en 750ms
-      _debounceTimer = Timer(const Duration(milliseconds: 750), _finalizeTap);
+    // La mitad de arriba suma y la de abajo resta.
+    final change = tapY < height / 2
+        ? widget.lifeChangeAmount
+        : -widget.lifeChangeAmount;
+    if (widget.player.change(change)) {
+      widget.onLifeChanged();
     }
+
+    // Los toques seguidos se agrupan: 750 ms después del último se apunta
+    // una sola entrada en el historial.
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 750), _finalizeTap);
   }
 
-  // Este método se ejecuta cuando el usuario deja de pulsar por XXXms
   void _finalizeTap() {
-    if (_life != _lifeOld) {
-      setState(() {
-        final change = _life - _lifeOld;
-        _lifeOld = _life;
-        // Añadimos el cambio acumulado al historial
-        final sign = change > 0 ? '+' : '';
-        _history.add('$sign$change = $_life');
-
-        // Realizamos el scroll al final del historial
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        });
-        widget.onLifeChanged();
-      });
-    }
+    if (widget.player.pending == 0) return;
+    widget.player.commit();
+    widget.onLifeChanged();
   }
 
   @override
@@ -122,123 +105,109 @@ class _PlayerCounterState extends State<PlayerCounter> {
       onTapDown: _onTap,
       child: Container(
         color: widget.color,
-        child: Row(
-          children: [
-            // El contador de vida (ocupa 2/3 del espacio, por ejemplo)
-            Expanded(
-              flex: 4,
-              child: Stack(
-                // <--- Se usa Stack en lugar de Column
-                children: [
-                  // El número de vida (se centra en toda la pantalla y se ajusta)
-                  Center(
-                    child: AutoSizeText(
-                      '$_life',
-                      style: const TextStyle(
-                        fontSize:
-                            500, // Un valor inicial grande para que se ajuste al máximo
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                      maxLines: 1,
-                      minFontSize:
-                          80, // Un mínimo bajo para evitar desbordamientos
-                      textScaleFactor:
-                          1.0, // Ignora el tamaño de fuente del sistema
-                    ),
-                  ),
-                  // Icono visual para sumar (se alinea arriba, independientemente del texto)
-                  const Align(
-                    alignment: Alignment.topCenter,
-                    child: Padding(
-                      padding: EdgeInsets.only(top: 10),
-                      child: Icon(
-                        Icons.add_circle,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                  // Icono visual para restar (se alinea abajo)
-                  const Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Padding(
-                      padding: EdgeInsets.only(bottom: 10),
-                      child: Icon(
-                        Icons.remove_circle,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                  Center(
-                    child: AnimatedOpacity(
-                      opacity: (_life - _lifeOld) != 0
-                          ? 1.0
-                          : 0.0, // Visible si hay cambios
-                      duration: const Duration(milliseconds: 0),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.8),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          (_life - _lifeOld) > 0
-                              ? '+${_life - _lifeOld}'
-                              : '${_life - _lifeOld}',
-                          style: TextStyle(
-                            color: (_life - _lifeOld) > 0
-                                ? Colors.greenAccent
-                                : (_life - _lifeOld) < 0
-                                ? Colors.redAccent
-                                : Colors.white,
-                            fontSize: 28,
+        child: ListenableBuilder(
+          listenable: widget.player,
+          builder: (context, _) {
+            final player = widget.player;
+            final pending = player.pending;
+            return Row(
+              children: [
+                Expanded(
+                  child: Stack(
+                    children: [
+                      // El número de vida (se centra y se ajusta al hueco)
+                      Center(
+                        child: AutoSizeText(
+                          '${player.life}',
+                          style: const TextStyle(
+                            fontSize: 500,
+                            color: Colors.white,
                             fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          minFontSize: 80,
+                          textScaleFactor: 1.0,
+                        ),
+                      ),
+                      // Icono visual para sumar
+                      const Align(
+                        alignment: Alignment.topCenter,
+                        child: Padding(
+                          padding: EdgeInsets.only(top: 10),
+                          child: Icon(
+                            Icons.add_circle,
+                            color: Colors.white,
+                            size: 24,
                           ),
                         ),
                       ),
+                      // Icono visual para restar
+                      const Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Padding(
+                          padding: EdgeInsets.only(bottom: 10),
+                          child: Icon(
+                            Icons.remove_circle,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ),
+                      // Burbuja con el cambio que aún no está en el historial
+                      if (pending != 0)
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.8),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              pending > 0 ? '+$pending' : '$pending',
+                              style: TextStyle(
+                                color: pending > 0
+                                    ? Colors.greenAccent
+                                    : Colors.redAccent,
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                // El panel del historial
+                SizedBox(
+                  width: kHistoryWidth,
+                  child: Container(
+                    color: Colors.black.withValues(alpha: 0.5),
+                    child: ListView.builder(
+                      controller: _scrollController,
+                      itemCount: player.history.length,
+                      itemBuilder: (context, index) {
+                        return AutoSizeText(
+                          player.history[index],
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                          ),
+                          textAlign: TextAlign.left,
+                          maxLines: 1,
+                          minFontSize: 12,
+                          textScaleFactor: 1.0,
+                        );
+                      },
                     ),
                   ),
-                ],
-              ),
-            ),
-            // El panel del historial (ocupa 1/3 del espacio)
-            SizedBox(
-              width: 76,
-              child: Container(
-                color: Colors.black.withOpacity(0.5),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: ListView.builder(
-                        controller: _scrollController,
-                        itemCount: _history.length,
-                        itemBuilder: (context, index) {
-                          return AutoSizeText(
-                            _history[index],
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                            ),
-                            textAlign: TextAlign.left,
-                            maxLines: 1,
-                            minFontSize:
-                                12, // Un mínimo bajo para evitar desbordamientos
-                            textScaleFactor: 1.0,
-                          );
-                        },
-                      ),
-                    ),
-                  ],
                 ),
-              ),
-            ),
-          ],
+              ],
+            );
+          },
         ),
       ),
     );
