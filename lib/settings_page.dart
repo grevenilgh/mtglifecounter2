@@ -234,16 +234,32 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ],
               ),
-              const _Label('Opacidad de marcos, barra e historial'),
+              const _Label('Opacidad de la barra central'),
               _PercentSlider(
-                value: settings.frameOpacity,
-                min: AppSettings.minFrameOpacity,
-                label: 'Opacidad de marcos, barra e historial',
-                onChanged: (v) => settings.frameOpacity = v,
+                value: settings.barOpacity,
+                min: AppSettings.minBarOpacity,
+                label: 'Opacidad de la barra central',
+                onChanged: (v) => settings.barOpacity = v,
               ),
+              const _Label('Opacidad del historial'),
+              _PercentSlider(
+                value: settings.historyOpacity,
+                min: 0,
+                label: 'Opacidad del historial',
+                onChanged: (v) => settings.historyOpacity = v,
+              ),
+              if (settings.theme == AppTheme.classic) ...[
+                const _Label('Opacidad del marco'),
+                _PercentSlider(
+                  value: settings.frameOpacity,
+                  min: AppSettings.minFrameOpacity,
+                  label: 'Opacidad del marco',
+                  onChanged: (v) => settings.frameOpacity = v,
+                ),
+              ],
               const _Help(
-                'Por debajo de 100 % se transparenta un poco la imagen de '
-                'fondo. El número y los botones + y − siempre van opacos.',
+                'Por debajo de 100 % se transparenta la imagen de fondo. El '
+                'número y los botones + y − siempre van opacos.',
               ),
               const _SectionTitle('Vidas'),
               _SettingsCard(

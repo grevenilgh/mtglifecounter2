@@ -132,6 +132,20 @@ class Look {
     AppTheme.classic => 66,
   };
 
+  /// Opacidad de la barra central si no se cambia en Ajustes.
+  int get defaultBarOpacity => switch (theme) {
+    AppTheme.original => 97,
+    AppTheme.modern => isCards ? 92 : 94,
+    AppTheme.classic => 92,
+  };
+
+  /// Opacidad del fondo del historial si no se cambia en Ajustes.
+  int get defaultHistoryOpacity => switch (theme) {
+    AppTheme.original => 50,
+    AppTheme.modern => 30,
+    AppTheme.classic => 80,
+  };
+
   /// Color claro del texto del número.
   Color get numberColor =>
       isClassic ? const Color(0xFFF6EDD5) : Colors.white;

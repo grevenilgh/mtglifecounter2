@@ -39,6 +39,8 @@ class AppSettings extends ChangeNotifier {
     _imageOpacity = _prefs.getInt(_kImageOpacity) ?? 60;
     _focus = _prefs.getBool(_kFocus);
     _frameOpacity = _prefs.getInt(_kFrameOpacity) ?? 92;
+    _barOpacity = _prefs.getInt(_kBarOpacity);
+    _historyOpacity = _prefs.getInt(_kHistoryOpacity);
     _animations = _prefs.getBool(_kAnimations) ?? true;
     _showStepper = _prefs.getBool(_kShowStepper) ?? false;
   }
@@ -54,11 +56,15 @@ class AppSettings extends ChangeNotifier {
   static const _kImageOpacity = 'imageOpacity';
   static const _kFocus = 'focus';
   static const _kFrameOpacity = 'frameOpacity';
+  static const _kBarOpacity = 'barOpacity';
+  static const _kHistoryOpacity = 'historyOpacity';
   static const _kAnimations = 'animations';
   static const _kShowStepper = 'showStepper';
 
-  /// Límites de la opacidad de marcos: por debajo el historial no se lee.
+  /// Mínimos de las opacidades: por debajo el marco se pierde y los botones
+  /// de la barra se dejan de ver sobre la imagen.
   static const int minFrameOpacity = 60;
+  static const int minBarOpacity = 30;
 
   final SharedPreferences _prefs;
 
@@ -73,6 +79,8 @@ class AppSettings extends ChangeNotifier {
   late int _imageOpacity;
   bool? _focus;
   late int _frameOpacity;
+  int? _barOpacity;
+  int? _historyOpacity;
   late bool _animations;
   late bool _showStepper;
 
@@ -153,8 +161,16 @@ class AppSettings extends ChangeNotifier {
   /// jugador, así que cuanto más baja mejor se lee el número.
   int get imageOpacity => _imageOpacity;
 
-  /// Opacidad de marcos, barra e historial, de [minFrameOpacity] a 100.
+  /// Opacidad del marco del borde antiguo, de [minFrameOpacity] a 100.
   int get frameOpacity => _frameOpacity;
+
+  /// Opacidad de la barra central, de [minBarOpacity] a 100. Mientras no se
+  /// toque, la de cada tema.
+  int get barOpacity => _barOpacity ?? look.defaultBarOpacity;
+
+  /// Opacidad del fondo del historial, de 0 a 100. Mientras no se toque, la
+  /// de cada tema.
+  int get historyOpacity => _historyOpacity ?? look.defaultHistoryOpacity;
   bool get animations => _animations;
 
   /// Si la barra enseña la cantidad por toque (− 1 +). Sin ella cada toque cuenta 1.
@@ -201,6 +217,18 @@ class AppSettings extends ChangeNotifier {
   set frameOpacity(int value) {
     _frameOpacity = value.clamp(minFrameOpacity, 100);
     _prefs.setInt(_kFrameOpacity, _frameOpacity);
+    notifyListeners();
+  }
+
+  set barOpacity(int value) {
+    _barOpacity = value.clamp(minBarOpacity, 100);
+    _prefs.setInt(_kBarOpacity, _barOpacity!);
+    notifyListeners();
+  }
+
+  set historyOpacity(int value) {
+    _historyOpacity = value.clamp(0, 100);
+    _prefs.setInt(_kHistoryOpacity, _historyOpacity!);
     notifyListeners();
   }
 

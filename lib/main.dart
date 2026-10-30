@@ -240,6 +240,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           backgroundMode: settings.backgroundMode,
           imageOpacity: settings.imageOpacity / 100,
           frameOpacity: settings.frameOpacity / 100,
+          historyOpacity: settings.historyOpacity / 100,
           focus: settings.focus,
           animations: settings.animations,
           screenKey: _screenKey,
@@ -253,7 +254,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         final bar = CenterBar(
           look: look,
           color: barColor,
-          alpha: style.frameOpacity,
+          alpha: settings.barOpacity / 100,
           leading: [
             BarAction(Icons.refresh, 'Reiniciar partida', _showResetConfirmationDialog),
             BarAction(Icons.swap_vert, 'Girar el panel de arriba', game.toggleRotation),

@@ -16,6 +16,7 @@ class PanelStyle {
     required this.backgroundMode,
     required this.imageOpacity,
     required this.frameOpacity,
+    required this.historyOpacity,
     required this.focus,
     required this.animations,
     required this.screenKey,
@@ -30,8 +31,11 @@ class PanelStyle {
   /// De 0 a 1.
   final double imageOpacity;
 
-  /// De 0 a 1: marcos e historial.
+  /// De 0 a 1: el marco del borde antiguo.
   final double frameOpacity;
+
+  /// De 0 a 1: el fondo del historial.
+  final double historyOpacity;
   final bool focus;
   final bool animations;
 
@@ -404,9 +408,7 @@ class _Zone extends StatelessWidget {
             builder: (context, _) {
               final t = 1 - hit.value;
               if (t <= 0 || hit.isDismissed) return const SizedBox.shrink();
-              final glow = gained()
-                  ? const Color(0xFF4ADE80)
-                  : const Color(0xFFEF4444);
+              final glow = hitColor(up: gained(), panel: color);
               return DecoratedBox(
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
@@ -422,30 +424,28 @@ class _Zone extends StatelessWidget {
             },
           ),
         ),
-        // Burbuja con el cambio que aún no está en el historial, junto al −.
-        ListenableBuilder(
-          listenable: player,
-          builder: (context, _) {
-            final pending = player.pending;
-            if (pending == 0) return const SizedBox.shrink();
-            return Positioned(
-              bottom: minusBottom + 6,
-              left: 0,
-              right: inset,
-              child: Center(
-                child: Transform.translate(
-                  offset: const Offset(70, 0),
-                  child: _Bubble(look: look, pending: pending),
-                ),
+        // Burbuja con el cambio que aún no está en el historial, en el centro
+        // del panel, encima del número.
+        Positioned.fill(
+          right: inset,
+          child: IgnorePointer(
+            child: Center(
+              child: ListenableBuilder(
+                listenable: player,
+                builder: (context, _) {
+                  final pending = player.pending;
+                  if (pending == 0) return const SizedBox.shrink();
+                  return _Bubble(look: look, pending: pending);
+                },
               ),
-            );
-          },
+            ),
+          ),
         ),
         _History(
           player: player,
           look: look,
           color: color,
-          alpha: style.frameOpacity,
+          alpha: style.historyOpacity,
           controller: scrollController,
         ),
       ],
@@ -477,6 +477,26 @@ class _Zone extends StatelessWidget {
     }
     return BoxDecoration(color: color.withValues(alpha: look.veil));
   }
+}
+
+/// Color del golpe: verde al ganar y rojo al perder. Si el panel ya es de ese
+/// tono (el verde de AlicanteMTG, el granate de Full Tapped), se usa uno que
+/// contraste con él: lima al ganar y naranja al perder.
+Color hitColor({required bool up, required Color panel}) {
+  final hue = HSVColor.fromColor(panel).hue;
+  double distance(double a, double b) {
+    final d = (a - b).abs() % 360;
+    return d > 180 ? 360 - d : d;
+  }
+
+  if (up) {
+    return distance(hue, 135) < 45
+        ? const Color(0xFFE6FF5C)
+        : const Color(0xFF4ADE80);
+  }
+  return distance(hue, 0) < 30
+      ? const Color(0xFFFFB347)
+      : const Color(0xFFF85050);
 }
 
 /// El número de vidas con el efecto golpe.
@@ -525,14 +545,18 @@ class _HitNumber extends StatelessWidget {
             final t = hit.value;
             final active = hit.isAnimating;
             final up = gained();
-            final glow = up ? const Color(0xFF4ADE80) : const Color(0xFFF85050);
+            final glow = hitColor(up: up, panel: color);
             final fade = active ? 1 - t : 0.0;
+            // El número se tiñe un poco por dentro y lleva un contorno oscuro
+            // suave mientras dura el golpe: así se nota aunque el panel sea
+            // del mismo color, sin que el número cambie del todo.
+            final fill = Color.lerp(look.numberColor, glow, 0.45 * fade)!;
             final shadows = [
+              if (fade > 0)
+                Shadow(color: Colors.black.withValues(alpha: 0.45 * fade), blurRadius: 4),
               ..._baseShadows(),
-              if (fade > 0) ...[
-                Shadow(color: glow.withValues(alpha: 0.95 * fade), blurRadius: 38),
-                Shadow(color: glow.withValues(alpha: 0.9 * fade), blurRadius: 10),
-              ],
+              if (fade > 0)
+                Shadow(color: glow.withValues(alpha: 0.9 * fade), blurRadius: 38),
             ];
             // Al ganar crece un poco; al perder se sacude de lado a lado.
             final scale = up && active ? 1 + 0.08 * (1 - t) : 1.0;
@@ -547,7 +571,7 @@ class _HitNumber extends StatelessWidget {
                   text,
                   style: look
                       .numberStyle(500 * look.numberScale)
-                      .copyWith(shadows: shadows),
+                      .copyWith(color: fill, shadows: shadows),
                   textAlign: TextAlign.center,
                   maxLines: 1,
                   minFontSize: 60,
@@ -696,7 +720,7 @@ class _History extends StatelessWidget {
         bottom: 0,
         right: 0,
         width: 76,
-        child: ColoredBox(color: Colors.black.withValues(alpha: 0.5), child: list),
+        child: ColoredBox(color: Colors.black.withValues(alpha: alpha), child: list),
       ),
       AppTheme.modern => Positioned(
         // En cristal la barra flota sobre el borde de dentro del panel.
@@ -706,7 +730,7 @@ class _History extends StatelessWidget {
         width: 62,
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.28),
+            color: Colors.black.withValues(alpha: alpha),
             borderRadius: BorderRadius.circular(look.isCards ? 18 : 16),
             border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
           ),
@@ -714,55 +738,95 @@ class _History extends StatelessWidget {
           child: list,
         ),
       ),
-      // Caja de texto translúcida con las franjas concéntricas de las tierras
-      // duales, en el color del jugador.
       AppTheme.classic => Positioned(
         top: 8,
         bottom: 8,
         right: 8,
         width: 60,
-        child: _Stripes(
-          colors: [const Color(0xCC28241E), color, const Color(0xBFFAF8F2), color],
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color.alphaBlend(
-                    color.withValues(alpha: 0.3),
-                    const Color(0xFFFAF7EE),
-                  ).withValues(alpha: 0.62 * alpha),
-                  Color.alphaBlend(
-                    color.withValues(alpha: 0.3),
-                    const Color(0xFFECE7DA),
-                  ).withValues(alpha: 0.62 * alpha),
-                ],
-              ),
-            ),
-            child: list,
-          ),
-        ),
+        // La caja de texto de los artefactos antiguos: pergamino gris con
+        // manchas, y un bisel como si estuviera hundida en el marco.
+        child: _Layers(layers: _artifactBox(alpha), child: list),
       ),
     };
   }
 }
 
-/// Bordes concéntricos de 1,5 px, de fuera a dentro.
-class _Stripes extends StatelessWidget {
-  const _Stripes({required this.colors, required this.child});
+/// Capas de la caja de texto de los artefactos: pergamino gris con manchas
+/// de luz y sombra y un bisel hundido.
+List<Decoration> _artifactBox(double alpha) => [
+  BoxDecoration(
+    gradient: LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: [
+        const Color(0xFFECE6D8).withValues(alpha: alpha),
+        const Color(0xFFCBC2AF).withValues(alpha: alpha),
+      ],
+    ),
+  ),
+  BoxDecoration(
+    gradient: RadialGradient(
+      center: const Alignment(-0.6, -0.5),
+      radius: 0.9,
+      colors: [
+        Colors.white.withValues(alpha: 0.5 * alpha),
+        Colors.white.withValues(alpha: 0),
+      ],
+    ),
+  ),
+  BoxDecoration(
+    gradient: RadialGradient(
+      center: const Alignment(0.7, 0.1),
+      radius: 0.7,
+      colors: [
+        const Color(0xFF5A4E3C).withValues(alpha: 0.3 * alpha),
+        const Color(0x005A4E3C),
+      ],
+    ),
+  ),
+  BoxDecoration(
+    gradient: RadialGradient(
+      center: const Alignment(-0.3, 0.75),
+      radius: 0.8,
+      colors: [
+        const Color(0xFF5A4E3C).withValues(alpha: 0.26 * alpha),
+        const Color(0x005A4E3C),
+      ],
+    ),
+  ),
+  BoxDecoration(
+    gradient: RadialGradient(
+      center: const Alignment(0.4, -0.85),
+      radius: 0.5,
+      colors: [
+        Colors.white.withValues(alpha: 0.25 * alpha),
+        Colors.white.withValues(alpha: 0),
+      ],
+    ),
+  ),
+  // El bisel: sombra arriba e izquierda, luz abajo y derecha.
+  const BoxDecoration(
+    border: Border(
+      top: BorderSide(color: Color(0xCC4A4033), width: 2),
+      left: BorderSide(color: Color(0xCC4A4033), width: 2),
+      right: BorderSide(color: Color(0xCCF5F0E4), width: 2),
+      bottom: BorderSide(color: Color(0xCCF5F0E4), width: 2),
+    ),
+  ),
+];
 
-  final List<Color> colors;
+/// Pinta [layers] una encima de otra detrás de [child].
+class _Layers extends StatelessWidget {
+  const _Layers({required this.layers, required this.child});
+
+  final List<Decoration> layers;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     Widget result = child;
-    for (final c in colors.reversed) {
-      result = Container(
-        decoration: BoxDecoration(border: Border.all(color: c, width: 1.5)),
-        child: result,
-      );
+    for (final layer in layers.reversed) {
+      result = DecoratedBox(decoration: layer, child: result);
     }
     return result;
   }

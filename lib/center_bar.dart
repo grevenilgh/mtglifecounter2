@@ -28,7 +28,7 @@ class CenterBar extends StatelessWidget {
   /// personalizada).
   final Color color;
 
-  /// Opacidad de marcos y barra, de 0 a 1.
+  /// Opacidad de la barra, de 0 a 1.
   final double alpha;
   final List<BarAction> leading;
   final List<BarAction> trailing;
@@ -56,7 +56,7 @@ class CenterBar extends StatelessWidget {
   Widget _original() {
     return Container(
       height: 78,
-      color: color.withValues(alpha: alpha < 0.97 ? 0.97 : alpha),
+      color: color.withValues(alpha: alpha),
       child: LayoutBuilder(
         builder: (context, constraints) => FittedBox(
           // Si la pantalla es muy estrecha la barra se encoge en vez de
@@ -87,7 +87,7 @@ class CenterBar extends StatelessWidget {
     final cards = look.isCards;
     final background = cards
         ? const Color(0xFF141416).withValues(alpha: alpha)
-        : color.withValues(alpha: alpha < 0.94 ? 0.94 : alpha);
+        : color.withValues(alpha: alpha);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: cards ? 18 : 10),
       child: Container(
@@ -135,9 +135,16 @@ class CenterBar extends StatelessWidget {
         height: 58,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          boxShadow: const [
-            BoxShadow(color: Color(0xFF0B0705), spreadRadius: 3),
-            BoxShadow(color: Color(0xBF000000), offset: Offset(0, 10), blurRadius: 24),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF0B0705).withValues(alpha: alpha),
+              spreadRadius: 3,
+            ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.75 * alpha),
+              offset: const Offset(0, 10),
+              blurRadius: 24,
+            ),
           ],
         ),
         child: Mottled(

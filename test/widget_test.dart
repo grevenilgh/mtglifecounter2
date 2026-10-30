@@ -93,6 +93,37 @@ void main() {
       expect(settings.backgroundOf(reloaded.skin), isA<AssetImage>());
     });
 
+    test('la barra y el historial tienen su propia opacidad', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final settings = AppSettings(prefs);
+
+      // Sin tocarlas, cada tema trae las suyas.
+      expect(settings.historyOpacity, 50);
+      settings.theme = AppTheme.modern;
+      expect(settings.historyOpacity, 30);
+
+      settings
+        ..barOpacity = 10
+        ..historyOpacity = 80;
+      final reloaded = AppSettings(prefs);
+      expect(reloaded.barOpacity, AppSettings.minBarOpacity);
+      expect(reloaded.historyOpacity, 80);
+      expect(reloaded.frameOpacity, 92);
+    });
+
+    test('el golpe contrasta con el color del panel', () {
+      const green = Color(0xFF4ADE80);
+      const red = Color(0xFFF85050);
+      // Morado de AlicanteMTG: verde al ganar y rojo al perder.
+      expect(hitColor(up: true, panel: Skin.alicante.top), green);
+      expect(hitColor(up: false, panel: Skin.alicante.top), red);
+      // Sobre el verde de AlicanteMTG el verde no se vería.
+      expect(hitColor(up: true, panel: Skin.alicante.bottom), isNot(green));
+      // Sobre el granate de Full Tapped el rojo tampoco.
+      expect(hitColor(up: false, panel: Skin.fullTapped.top), isNot(red));
+    });
+
     test('las skins publicadas no cambian por error', () {
       expect(Skin.alicante.top.toARGB32(), 0xFF673AB7);
       expect(Skin.fullTapped.top.toARGB32(), 0xFF9B1D20);
