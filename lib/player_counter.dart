@@ -589,7 +589,11 @@ class _HitNumber extends StatelessWidget {
 /// Botón visual de + o −. Va en un círculo para que se vea sobre cualquier
 /// imagen.
 class _Pip extends StatelessWidget {
-  const _Pip({required this.look, required this.color, required this.sign});
+  const _Pip({
+    required this.look,
+    required this.color,
+    required this.sign,
+  });
 
   final Look look;
   final Color color;
@@ -597,6 +601,7 @@ class _Pip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (look.theme == AppTheme.modern) return _modern();
     final classic = look.isClassic;
     final size = classic ? 42.0 : 46.0;
     return Container(
@@ -609,9 +614,7 @@ class _Pip extends StatelessWidget {
               shape: BoxShape.circle,
               color: Colors.black.withValues(alpha: 0.42),
               border: Border.all(
-                color: look.isCards
-                    ? shade(color, 1.3)
-                    : Colors.white.withValues(alpha: 0.55),
+                color: Colors.white.withValues(alpha: 0.55),
                 width: 1.5,
               ),
             ),
@@ -628,6 +631,23 @@ class _Pip extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+
+  // En el borde nuevo el signo es un icono: el + y el − de Barlow y Outfit no
+  // quedan centrados dentro del círculo.
+  Widget _modern() {
+    final icon = sign == '+' ? Icons.add_rounded : Icons.remove_rounded;
+    final edge = look.isCards ? shade(color, 1.3) : Colors.white.withValues(alpha: 0.55);
+    return Container(
+      width: 46,
+      height: 46,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.black.withValues(alpha: 0.42),
+        border: Border.all(color: edge, width: 1.5),
+      ),
+      child: Icon(icon, color: Colors.white, size: 30),
     );
   }
 }
