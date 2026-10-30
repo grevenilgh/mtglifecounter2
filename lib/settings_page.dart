@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mtglifecounter/app_settings.dart';
+import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/skin.dart';
 
 const Color kSettingsBackground = Color(0xFF111113);
@@ -62,6 +63,35 @@ class SettingsPage extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 4, 20, 36),
             children: [
               const _SectionTitle('Aspecto'),
+              const _Label('Tema'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final theme in AppTheme.values)
+                    _Chip(
+                      label: theme.label,
+                      selected: settings.theme == theme,
+                      onTap: () => settings.theme = theme,
+                    ),
+                ],
+              ),
+              if (settings.theme == AppTheme.modern) ...[
+                const _Label('Variante'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final variant in ModernVariant.values)
+                      _Chip(
+                        label: variant.label,
+                        selected: settings.modernVariant == variant,
+                        onTap: () => settings.modernVariant = variant,
+                      ),
+                  ],
+                ),
+              ],
+              const _Label('Skin'),
               Row(
                 children: [
                   for (final skin in [...Skin.presets, custom]) ...[
@@ -149,6 +179,98 @@ class SettingsPage extends StatelessWidget {
                     ),
                   ),
               ],
+              const _Label('Imagen de fondo'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final mode in BackgroundMode.values)
+                    _Chip(
+                      label: mode.label,
+                      selected: settings.backgroundMode == mode,
+                      onTap: () => settings.backgroundMode = mode,
+                    ),
+                ],
+              ),
+              const _Help(
+                'Con una para cada jugador, los dos la ven entera y derecha '
+                'desde su lado de la mesa.',
+              ),
+              const _Label('Opacidad de la imagen'),
+              _PercentSlider(
+                value: settings.imageOpacity,
+                min: 0,
+                label: 'Opacidad de la imagen',
+                onChanged: (v) => settings.imageOpacity = v,
+              ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final (name, value) in const [
+                    ('Nítida', 100),
+                    ('Suave', 60),
+                    ('Tenue', 30),
+                  ])
+                    _Chip(
+                      label: '$name · $value %',
+                      selected: settings.imageOpacity == value,
+                      onTap: () => settings.imageOpacity = value,
+                    ),
+                ],
+              ),
+              const _Help(
+                'Cuanto más baja, más se ve el color del jugador y mejor se '
+                'lee el número.',
+              ),
+              const SizedBox(height: 12),
+              _SettingsCard(
+                children: [
+                  _SwitchRow(
+                    title: 'Foco en el número',
+                    subtitle: 'Oscurece la imagen solo detrás del número.',
+                    value: settings.focus,
+                    onChanged: (v) => settings.focus = v,
+                  ),
+                ],
+              ),
+              const _Label('Opacidad de marcos, barra e historial'),
+              _PercentSlider(
+                value: settings.frameOpacity,
+                min: AppSettings.minFrameOpacity,
+                label: 'Opacidad de marcos, barra e historial',
+                onChanged: (v) => settings.frameOpacity = v,
+              ),
+              const _Help(
+                'Por debajo de 100 % se transparenta un poco la imagen de '
+                'fondo. El número y los botones + y − siempre van opacos.',
+              ),
+              const _SectionTitle('Vidas'),
+              _SettingsCard(
+                children: [
+                  _SwitchRow(
+                    title: 'Animaciones al cambiar vidas',
+                    subtitle:
+                        'Al perder, el número se sacude y el borde se tiñe de '
+                        'rojo; al ganar, brilla en verde.',
+                    value: settings.animations,
+                    onChanged: (v) => settings.animations = v,
+                  ),
+                ],
+              ),
+              const _SectionTitle('Barra central'),
+              _SettingsCard(
+                children: [
+                  _SwitchRow(
+                    title: 'Cantidad por toque (− 1 +)',
+                    subtitle:
+                        'Para sumar o restar más de una vida de golpe. Sin '
+                        'ella, cada toque cuenta 1.',
+                    value: settings.showStepper,
+                    onChanged: (v) => settings.showStepper = v,
+                  ),
+                ],
+              ),
               const _SectionTitle('Partida'),
               _SettingsCard(
                 children: [
@@ -210,6 +332,69 @@ class _Label extends StatelessWidget {
         text,
         style: const TextStyle(color: Color(0xFFD4D4D8), fontSize: 14),
       ),
+    );
+  }
+}
+
+class _Help extends StatelessWidget {
+  const _Help(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Text(
+        text,
+        style: const TextStyle(color: kMutedText, fontSize: 13, height: 1.4),
+      ),
+    );
+  }
+}
+
+/// Deslizador de porcentaje de 5 en 5, con el valor al lado.
+class _PercentSlider extends StatelessWidget {
+  const _PercentSlider({
+    required this.value,
+    required this.min,
+    required this.label,
+    required this.onChanged,
+  });
+
+  final int value;
+  final int min;
+  final String label;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Slider(
+            value: value.toDouble(),
+            min: min.toDouble(),
+            max: 100,
+            divisions: (100 - min) ~/ 5,
+            label: '$value %',
+            semanticFormatterCallback: (v) => '$label: ${v.round()} %',
+            activeColor: kAccent,
+            onChanged: (v) => onChanged(v.round()),
+          ),
+        ),
+        SizedBox(
+          width: 52,
+          child: Text(
+            '$value %',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

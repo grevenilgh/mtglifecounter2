@@ -37,10 +37,13 @@ No hay gestor de estado: el estado compartido son `ChangeNotifier` de Flutter qu
   - `PlayerState`: vida e historial de un jugador. **Agrupación**: `change()` mueve la vida y `commit()` apunta **una** entrada `+N = vida` con lo acumulado. `committedLife` es la vida de la última entrada y `pending` el cambio aún sin apuntar (el que enseña la burbuja). Vida limitada a [-999, 999].
   - `GameState`: los dos jugadores y `rotated`. `reset()` no toca el giro.
   - `GameStorage`: guarda la partida en `shared_preferences` (clave `game`) medio segundo después del último cambio, y al momento con `flush()` cuando la app pasa a segundo plano. Al cargar, un grupo que quedó a medias se apunta.
-- `lib/app_settings.dart`: `AppSettings`, las preferencias (skin, skin personalizada, foto de fondo, recordar partida, pantalla encendida). Se guardan en cuanto cambian. La foto de fondo va en base64 en las preferencias, así que se pide reducida (1440 px como mucho).
+- `lib/app_settings.dart`: `AppSettings`, las preferencias (skin, skin personalizada, foto de fondo, recordar partida, pantalla encendida, y el aspecto: tema, variante, imagen para toda la pantalla o por jugador, opacidad de la imagen y de los marcos, foco en el número, animaciones y si la barra enseña la cantidad por toque). Se guardan en cuanto cambian. La foto de fondo va en base64 en las preferencias, así que se pide reducida (1440 px como mucho).
 - `lib/skin.dart`: `Skin` (colores y `SkinBackground`) con las skins `alicante`, `fullTapped` y `customDefault`.
 - `lib/main.dart`: `MyHomePage` contiene la disposición (2 `PlayerCounter` + barra), los diálogos (reinicio, moneda, dado) y `_lifeChangeAmount`, la cantidad que suma o resta cada toque.
-- `lib/player_counter.dart`: panel de un jugador. La mitad superior suma y la inferior resta. Los últimos `kHistoryWidth` (76) px de la derecha son el historial y no cuentan como toque. El debounce de 750 ms que llama a `commit()` vive aquí.
+- `lib/look.dart`: los tres temas (`AppTheme`: «De siempre», «Borde nuevo» con sus variantes `ModernVariant` Cristal y Tarjetas, y «Borde antiguo», que es el «Jaspe fino» del prototipo) y `Look`, que resuelve lo que cambia de uno a otro (fuente del número, color encima de la imagen, hueco de la barra). También el marco jaspeado (`Mottled`) y `withFont`, que pone las fuentes de `google_fonts` (en los tests se desactiva con `useGoogleFonts = false`, porque no hay red).
+- `lib/player_counter.dart`: panel de un jugador. La mitad superior suma y la inferior resta. A la derecha va el historial, que no cuenta como toque (`_historyReserve`). El debounce de 750 ms que llama a `commit()` vive aquí, y también el efecto «golpe» (al perder el número se sacude y el borde se tiñe de rojo; al ganar brilla en verde). Las capas de la zona del número, de abajo arriba: color del jugador, imagen con su opacidad, velo de color, foco, tono de las mitades, número, botones + y −, borde del golpe, burbuja e historial.
+- `lib/screen_image.dart`: con «una imagen para toda la pantalla», cada panel pinta solo su trozo de la imagen, alineado con la pantalla y derecho aunque el panel esté girado.
+- `lib/center_bar.dart`: la barra central de cada tema. La cantidad por toque (− 1 +) solo sale si está activada en Ajustes; sin ella cada toque cuenta 1.
 - `lib/settings_page.dart`: pantalla de Ajustes (skins, colores con `flutter_colorpicker`, foto de fondo con `image_picker`, interruptores).
 - `lib/number_stepper.dart`: selector de 1 a 99. Una pulsación larga suma o resta 10.
 
@@ -57,6 +60,7 @@ No hay gestor de estado: el estado compartido son `ChangeNotifier` de Flutter qu
 
 ## Problemas conocidos
 
+- Las fuentes de los temas (Barlow Condensed, Outfit, Vollkorn) las baja `google_fonts` la primera vez que se usan; sin internet se ve la del sistema. Para no depender de la red habría que meter los `.ttf` en `assets/`.
 - `AutoSizeText` (paquete `auto_size_text` 3.0.0) solo acepta `textScaleFactor`, así que se sigue usando ahí aunque Flutter lo marque como obsoleto.
 - Android usa Gradle 8.14.3, AGP 8.13.0 y Kotlin 2.3.20, que son los mínimos de Flutter 3.47. `gradle.properties` lleva `android.newDsl=false` y `android.builtInKotlin=false`, que puso el migrador de Flutter. Flutter avisa de que pronto exigirá AGP 9 y Gradle 9.1: habrá que migrar `build.gradle.kts` al DSL nuevo y quitar esos dos flags.
 - La versión release se firma con la clave de depuración. Sirve para instalar el APK a mano, pero no para Google Play.

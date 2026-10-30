@@ -2,11 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/game_state.dart';
+import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/main.dart';
+import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/skin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  // En los tests no hay red para descargar fuentes.
+  useGoogleFonts = false;
+
   group('PlayerState', () {
     test('agrupa los cambios en una sola entrada del historial', () {
       final player = PlayerState();
@@ -108,7 +113,7 @@ void main() {
     );
 
     // El panel de abajo ocupa la mitad inferior de la pantalla.
-    final bottomPanel = tester.getRect(find.byType(Expanded).last);
+    final bottomPanel = tester.getRect(find.byType(PlayerCounter).last);
     await tester.tapAt(Offset(bottomPanel.left + 60, bottomPanel.top + 40));
     await tester.pump();
     expect(game.bottom.life, 21);

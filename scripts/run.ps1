@@ -28,7 +28,9 @@ if (-not (Get-Command flutter -ErrorAction SilentlyContinue)) {
 function Get-AndroidDevice {
     $out = (flutter devices --machine) -join "`n"
     $json = $out.Substring([Math]::Max(0, $out.IndexOf('[')))
-    ConvertFrom-Json $json | Where-Object { $_.targetPlatform -like 'android*' } | Select-Object -First 1
+    # Entre paréntesis: en PowerShell 5.1 ConvertFrom-Json pasa la lista entera
+    # como un solo objeto y el filtro no separaría los dispositivos.
+    (ConvertFrom-Json $json) | Where-Object { $_.targetPlatform -like 'android*' } | Select-Object -First 1
 }
 
 Set-Location $ProjectDir

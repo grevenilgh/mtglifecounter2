@@ -3,10 +3,13 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mtglifecounter/app_settings.dart';
+import 'package:mtglifecounter/center_bar.dart';
 import 'package:mtglifecounter/game_state.dart';
+import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/settings_page.dart';
+import 'package:mtglifecounter/skin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
@@ -89,6 +92,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ValueNotifier<bool> _resetNotifier = ValueNotifier<bool>(false);
+  // La pantalla entera, para que los paneles enseñen su trozo de la imagen.
+  final GlobalKey _screenKey = GlobalKey();
   final Random _random = Random();
   int _lifeChangeAmount = 1;
 
@@ -220,15 +225,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _barButton(IconData icon, String tooltip, VoidCallback onPressed) {
-    return IconButton(
-      icon: Icon(icon, color: Colors.white, size: 28),
-      tooltip: tooltip,
-      visualDensity: VisualDensity.compact,
-      onPressed: onPressed,
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final settings = widget.settings;
@@ -237,89 +233,95 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       listenable: Listenable.merge([settings, game]),
       builder: (context, _) {
         final skin = settings.skin;
-        final background = settings.backgroundOf(skin);
+        final look = settings.look;
+        final style = PanelStyle(
+          look: look,
+          background: settings.backgroundOf(skin),
+          backgroundMode: settings.backgroundMode,
+          imageOpacity: settings.imageOpacity / 100,
+          frameOpacity: settings.frameOpacity / 100,
+          focus: settings.focus,
+          animations: settings.animations,
+          screenKey: _screenKey,
+        );
+        // Sin la cantidad por toque en la barra, cada toque cuenta 1.
+        final amount = settings.showStepper ? _lifeChangeAmount : 1;
+        // En el borde antiguo la barra es de cuero, salvo en la personalizada.
+        final barColor = look.isClassic && skin.id != Skin.customDefault.id
+            ? const Color(0xFF4A3420)
+            : skin.bar;
+        final bar = CenterBar(
+          look: look,
+          color: barColor,
+          alpha: style.frameOpacity,
+          leading: [
+            BarAction(Icons.refresh, 'Reiniciar partida', _showResetConfirmationDialog),
+            BarAction(Icons.swap_vert, 'Girar el panel de arriba', game.toggleRotation),
+          ],
+          stepper: settings.showStepper
+              ? (color, compact) => NumberStepper(
+                  resetNotifier: _resetNotifier,
+                  initialValue: _lifeChangeAmount,
+                  color: color,
+                  compact: compact,
+                  onChanged: (newValue) {
+                    setState(() {
+                      _lifeChangeAmount = newValue;
+                    });
+                  },
+                )
+              : null,
+          trailing: [
+            BarAction(Icons.monetization_on_outlined, 'Lanzar moneda', _coinFlip),
+            BarAction(Icons.casino_outlined, 'Lanzar dado', _rollDice),
+            BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
+          ],
+        );
+        Widget panel(PlayerState player, Color color) => PlayerCounter(
+          player: player,
+          color: color,
+          style: style,
+          lifeChangeAmount: amount,
+          onLifeChanged: _onLifeChanged,
+        );
         return Scaffold(
           backgroundColor: Colors.black,
-          body: Container(
-            // La imagen de fondo solo se aplica al body del Scaffold
-            decoration: BoxDecoration(
-              image: background == null
-                  ? null
-                  : DecorationImage(image: background, fit: BoxFit.cover),
-            ),
-            // El contenido de la app se coloca dentro de un SafeArea
-            child: SafeArea(
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Transform.rotate(
-                      angle: game.rotated ? pi : 0,
-                      child: PlayerCounter(
-                        player: game.top,
-                        color: skin.topPanel,
-                        lifeChangeAmount: _lifeChangeAmount,
-                        onLifeChanged: _onLifeChanged,
+          body: Stack(
+            key: _screenKey,
+            fit: StackFit.expand,
+            children: [
+              ScreenBackground(skin: skin, style: style),
+              // El contenido de la app se coloca dentro de un SafeArea
+              SafeArea(
+                child: Padding(
+                  padding: switch (look.theme) {
+                    AppTheme.original => EdgeInsets.zero,
+                    AppTheme.modern =>
+                      look.isCards ? const EdgeInsets.all(12) : EdgeInsets.zero,
+                    AppTheme.classic => const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                  },
+                  child: Stack(
+                    children: [
+                      Column(
+                        children: [
+                          Expanded(
+                            child: Transform.rotate(
+                              angle: game.rotated ? pi : 0,
+                              child: panel(game.top, skin.top),
+                            ),
+                          ),
+                          SizedBox(height: look.barGap),
+                          Expanded(child: panel(game.bottom, skin.bottom)),
+                        ],
                       ),
-                    ),
+                      // La barra va centrada: en el hueco entre los paneles
+                      // o, en cristal, flotando encima.
+                      Align(child: bar),
+                    ],
                   ),
-                  Container(
-                    height: 78,
-                    color: skin.barColor,
-                    // Si la pantalla es muy estrecha la barra se encoge en
-                    // vez de desbordarse.
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: SizedBox(
-                        width: max(MediaQuery.sizeOf(context).width, 340),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _barButton(
-                              Icons.refresh,
-                              'Reiniciar partida',
-                              _showResetConfirmationDialog,
-                            ),
-                            _barButton(
-                              Icons.crop_rotate,
-                              'Girar el panel de arriba',
-                              game.toggleRotation,
-                            ),
-                            NumberStepper(
-                              resetNotifier: _resetNotifier,
-                              initialValue: _lifeChangeAmount,
-                              onChanged: (newValue) {
-                                setState(() {
-                                  _lifeChangeAmount = newValue;
-                                });
-                              },
-                            ),
-                            _barButton(
-                              Icons.monetization_on,
-                              'Lanzar moneda',
-                              _coinFlip,
-                            ),
-                            _barButton(Icons.casino, 'Lanzar dado', _rollDice),
-                            _barButton(
-                              Icons.settings,
-                              'Ajustes',
-                              _openSettings,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: PlayerCounter(
-                      player: game.bottom,
-                      color: skin.bottomPanel,
-                      lifeChangeAmount: _lifeChangeAmount,
-                      onLifeChanged: _onLifeChanged,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+            ],
           ),
         );
       },
