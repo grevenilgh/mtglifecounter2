@@ -55,6 +55,8 @@ Solo hay 3 archivos en `lib/` y el estado vive en `StatefulWidget`s. No se usa n
 - `_rollDice` usa `nextInt(19) + 1`, que da de 1 a 19: **nunca sale 20**. Debería ser `nextInt(20) + 1`.
 - El botón de girar tiene el tooltip `'Reiniciar vidas'` copiado del botón de reinicio.
 - Se usa `withOpacity` y `textScaleFactor`, que están obsoletos en Flutter 3.27+. Los sustitutos son `withValues(alpha:)` y `textScaler: TextScaler.noScaling`.
+- Android usa Gradle 8.14.3, AGP 8.13.0 y Kotlin 2.3.20, que son los mínimos de Flutter 3.47. `gradle.properties` lleva `android.newDsl=false` y `android.builtInKotlin=false`, que puso el migrador de Flutter. Flutter avisa de que pronto exigirá AGP 9 y Gradle 9.1: habrá que migrar `build.gradle.kts` al DSL nuevo y quitar esos dos flags.
+- La versión release se firma con la clave de depuración. Sirve para instalar el APK a mano, pero no para Google Play.
 - El `applicationId` de Android es `mtg.premodern.alicante.lifecounter`, pero el bundle id de iOS sigue siendo `com.example.mtglifecounter`.
 
 ## Convenciones

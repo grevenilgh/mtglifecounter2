@@ -139,13 +139,16 @@ if ($Android) {
     Add-UserPath "$AndroidSdk\platform-tools"
     Invoke-Checked 'flutter config --android-sdk' { flutter config --android-sdk $AndroidSdk }
 
-    Write-Step 'Licencias del SDK de Android: léelas y responde "y" para aceptarlas'
-    Invoke-Checked 'Aceptar licencias' { flutter doctor --android-licenses }
-
-    Write-Step 'Paquetes del SDK de Android'
+    # Primero los paquetes: hasta que no hay platform-tools, Flutter no reconoce el SDK.
+    # sdkmanager pide aquí la licencia principal.
+    Write-Step 'Paquetes del SDK de Android: lee la licencia y responde "y" para aceptarla'
     $packages = @('platform-tools', "platforms;android-$AndroidApi", "build-tools;$AndroidApi.0.0")
     if ($Emulator) { $packages += @('emulator', "system-images;android-$AndroidApi;google_apis;x86_64") }
     Invoke-Checked 'sdkmanager' { & $sdkmanager @packages }
+
+    # El resto de licencias (las que Gradle necesita para descargar el NDK, etc.).
+    Write-Step 'Resto de licencias del SDK de Android: léelas y responde "y" a cada una'
+    Invoke-Checked 'Aceptar licencias' { & $sdkmanager --licenses }
 
     if ($Emulator) {
         Write-Step "Emulador '$AvdName'"
