@@ -1,6 +1,7 @@
 package com.example.mtglifecounter
 
 import android.content.ComponentName
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -32,7 +33,11 @@ class MainActivity : FlutterActivity() {
     }
 
     private fun applyIcon(icon: String) {
-        val wanted = ALIASES[icon] ?: return
+        // En la versión de depuración el icono se queda en AlicanteMTG: flutter run
+        // abre la app siempre por esa entrada y, desde Android 14, adb ya no puede
+        // volver a encenderla. Así también se arregla sola si estaba apagada.
+        val debuggable = applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        val wanted = ALIASES[if (debuggable) "alicante" else icon] ?: return
         // Primero se activa la nueva para que siempre haya una en el lanzador.
         setAlias(wanted, true)
         for (alias in ALIASES.values) {
