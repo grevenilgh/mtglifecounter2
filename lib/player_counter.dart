@@ -918,6 +918,7 @@ class _History extends StatelessWidget {
             entry: history[index],
             look: look,
             last: index == history.length - 1,
+            darkBox: classic && frame.darkTextBox,
           ),
         );
       },
@@ -962,6 +963,10 @@ class _History extends StatelessWidget {
               image: AssetImage(frame.textBoxAsset),
               fit: BoxFit.cover,
               opacity: alpha,
+              // Las cajas oscuras se oscurecen algo más para la tinta clara.
+              colorFilter: frame.darkTextBox
+                  ? const ColorFilter.mode(Color(0x4D000000), BlendMode.srcATop)
+                  : null,
             ),
             border: const Border(
               top: BorderSide(color: Color(0xCC2A2218), width: 2),
@@ -982,11 +987,15 @@ class _HistoryLine extends StatelessWidget {
     required this.entry,
     required this.look,
     required this.last,
+    this.darkBox = false,
   });
 
   final String entry;
   final Look look;
   final bool last;
+
+  /// En el Old Border, si la caja de texto es oscura y va en tinta clara.
+  final bool darkBox;
 
   @override
   Widget build(BuildContext context) {
@@ -997,16 +1006,29 @@ class _HistoryLine extends StatelessWidget {
     final up = delta.startsWith('+');
     final classic = look.isClassic;
     final original = look.theme == AppTheme.original;
+    // En el Old Border la tinta depende de la caja: oscura sobre las claras y
+    // clara sobre el rojo y la madera. Medida para pasar de 4,5:1.
     final deltaColor = classic
-        ? (up ? const Color(0xFF1D6A2B) : const Color(0xFF8F1C1C))
+        ? darkBox
+              ? (up ? const Color(0xFFD4FFC9) : const Color(0xFFFFD8CF))
+              : (up ? const Color(0xFF0A3D12) : const Color(0xFF5C0A0A))
         : original
         ? (up ? const Color(0xFF69F0AE) : const Color(0xFFFF5252))
         : (up ? const Color(0xFF86EFAC) : const Color(0xFFFCA5A5));
     final valueColor = classic
-        ? const Color(0xFF1F1D19)
+        ? (darkBox ? const Color(0xFFFFF6E4) : const Color(0xFF14110E))
         : Colors.white.withValues(alpha: original ? 1 : 0.75);
+    // Un halo del color contrario separa los números de la textura.
     final halo = classic
-        ? const [Shadow(color: Color(0xE6FAF7EE), blurRadius: 3)]
+        ? darkBox
+              ? const [
+                  Shadow(color: Color(0xE6000000), blurRadius: 2),
+                  Shadow(color: Color(0x99000000), blurRadius: 6),
+                ]
+              : const [
+                  Shadow(color: Color(0xE6FAF7EE), blurRadius: 2),
+                  Shadow(color: Color(0x99FAF7EE), blurRadius: 6),
+                ]
         : null;
     return Container(
       margin: const EdgeInsets.only(bottom: 1),
@@ -1014,7 +1036,9 @@ class _HistoryLine extends StatelessWidget {
       decoration: last
           ? BoxDecoration(
               color: classic
-                  ? Colors.white.withValues(alpha: 0.35)
+                  ? darkBox
+                        ? Colors.black.withValues(alpha: 0.3)
+                        : Colors.white.withValues(alpha: 0.4)
                   : Colors.white.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(classic ? 2 : 8),
             )
@@ -1030,8 +1054,8 @@ class _HistoryLine extends StatelessWidget {
                 look.numberFont,
                 TextStyle(
                   color: deltaColor,
-                  fontWeight: FontWeight.w700,
-                  fontSize: original ? 18 : 15,
+                  fontWeight: classic ? FontWeight.w800 : FontWeight.w700,
+                  fontSize: original ? 18 : (classic ? 16 : 15),
                   shadows: halo,
                   fontFeatures: kNumberFeatures,
                 ),
@@ -1044,8 +1068,8 @@ class _HistoryLine extends StatelessWidget {
                 look.numberFont,
                 TextStyle(
                   color: valueColor,
-                  fontWeight: FontWeight.w600,
-                  fontSize: original ? 15 : 13,
+                  fontWeight: classic ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: original ? 15 : (classic ? 15 : 13),
                   shadows: halo,
                   fontFeatures: kNumberFeatures,
                 ),

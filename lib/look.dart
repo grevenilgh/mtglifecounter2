@@ -109,6 +109,11 @@ enum CardFrame {
   String? get horizontalAsset =>
       this == verde ? 'assets/images/marcos/verde_h.jpg' : null;
 
+  /// Si su caja de texto es oscura (el rojo y la madera del verde): ahí el
+  /// historial va en tinta clara y la caja se oscurece un poco para que se
+  /// lea.
+  bool get darkTextBox => this == rojo || this == verde;
+
   /// La caja de texto de una carta de ese color, de pie: es el fondo del
   /// historial.
   String get textBoxAsset => 'assets/images/marcos/caja_$name.jpg';
