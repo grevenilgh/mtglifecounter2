@@ -290,12 +290,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           trailing: _drawsOpen
               ? [
                   BarAction(
-                    Icons.monetization_on_outlined,
+                    Icons.toll_outlined,
                     'Lanzar moneda',
                     () => _openDraw(showCoinFlip),
                   ),
                   BarAction(
-                    Icons.hexagon_outlined,
+                    Icons.casino_outlined,
                     'Tirar el dado D20',
                     () => _openDraw(showDiceRoll),
                   ),

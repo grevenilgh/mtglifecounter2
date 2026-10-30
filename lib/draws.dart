@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/settings_page.dart';
 
@@ -155,23 +156,51 @@ class _CoinDraw extends StatefulWidget {
   State<_CoinDraw> createState() => _CoinDrawState();
 }
 
+/// Un lanzamiento de verdad: la moneda se encoge un poco al impulsarla, sube
+/// girando hacia el que mira, cae, da dos botes cada vez más bajos y se
+/// asienta bamboleándose. Al girar se ve su canto y le pasa un brillo.
 class _CoinDrawState extends State<_CoinDraw>
     with SingleTickerProviderStateMixin {
-  static const int _turns = 6;
+  static const int _ms = 1900;
+
+  // Tramos del tiempo total: impulso, vuelo y botes.
+  static const double _lift = 0.06;
+  static const double _land = 0.72;
+
+  // Altura del vuelo y grosor del canto, en dp.
+  static const double _height = 190;
+  static const double _thickness = 12;
+
   late final AnimationController _c =
       AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 1000),
+        duration: const Duration(milliseconds: _ms),
       )..addStatusListener((s) {
         if (s == AnimationStatus.completed) setState(() => _shown = true);
       });
   bool _heads = true;
   bool _shown = false;
 
+  // Medias vueltas del vuelo: par si sale cara, impar si sale cruz.
+  int _halfTurns = 16;
+
+  // Inclinación lateral del lanzamiento, distinta en cada tirada.
+  double _tilt = 0;
+  int _throwId = 0;
+
   @override
   void initState() {
     super.initState();
     _throw();
+  }
+
+  // Las dos caras se cargan ya: si no, la primera tirada vuela sin dibujo.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    for (final face in const ['moneda-cara', 'moneda-cruz']) {
+      precacheImage(AssetImage('assets/images/sorteos/$face.jpg'), context);
+    }
   }
 
   @override
@@ -181,18 +210,26 @@ class _CoinDrawState extends State<_CoinDraw>
   }
 
   void _throw() {
+    final heads = _random.nextBool();
+    final id = ++_throwId;
     setState(() {
-      _heads = _random.nextBool();
+      _heads = heads;
       _shown = false;
+      _halfTurns = 2 * (7 + _random.nextInt(3)) + (heads ? 0 : 1);
+      _tilt = (_random.nextDouble() * 2 - 1) * 0.22;
     });
     _c.forward(from: 0);
+    HapticFeedback.lightImpact();
+    // Un toque al caer y en cada bote.
+    for (final at in [_land, _land + 0.45 * (1 - _land)]) {
+      Future<void>.delayed(Duration(milliseconds: (at * _ms).round()), () {
+        if (mounted && id == _throwId) HapticFeedback.selectionClick();
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final end = _turns * 2 * pi + (_heads ? 0 : pi);
-    const spin = Cubic(0.15, 0.55, 0.25, 1);
-    const jump = Cubic(0.3, 0.1, 0.3, 1);
     return _DrawLayout(
       flipTop: widget.flipTop,
       label: _heads ? 'Cara' : 'Cruz',
@@ -204,31 +241,62 @@ class _CoinDrawState extends State<_CoinDraw>
         child: AnimatedBuilder(
           animation: _c,
           builder: (context, _) {
-            final angle = spin.transform(_c.value) * end;
-            // Sube hasta el 45 % del tiempo y vuelve a caer.
-            final j = jump.transform(_c.value);
-            final lift = j < 0.45 ? j / 0.45 : (1 - j) / 0.55;
-            final up = _c.isAnimating ? lift : 0.0;
-            // Se ve la cara mientras el disco no ha pasado del canto.
+            final t = _c.value;
+            final end = _halfTurns * pi;
+            double height; // dp sobre la mesa
+            double angle; // giro sobre el eje horizontal
+            double press = 0; // aplastado del impulso
+            double tilt; // inclinación lateral
+            if (t < _lift) {
+              press = sin(pi * t / _lift);
+              height = 0;
+              angle = 0;
+              tilt = 0;
+            } else if (t < _land) {
+              final p = (t - _lift) / (_land - _lift);
+              // Parábola: sube y cae. El giro frena un poco al final.
+              height = 4 * p * (1 - p) * _height;
+              angle = end * Curves.easeOutSine.transform(p);
+              tilt = _tilt * sin(pi * p);
+            } else {
+              final q = (t - _land) / (1 - _land);
+              // Dos botes cada vez más bajos y luego quieta.
+              height = q < 0.45
+                  ? 22 * sin(pi * q / 0.45)
+                  : q < 0.72
+                  ? 7 * sin(pi * (q - 0.45) / 0.27)
+                  : 0;
+              // Se asienta bamboleándose.
+              final settle = pow(1 - q, 2).toDouble();
+              angle = end + 0.42 * settle * sin(q * pi * 5);
+              tilt = _tilt * 0.4 * settle * sin(q * pi * 3);
+            }
+            final h = height / _height;
             final showsHeads = cos(angle) >= 0;
+            // Lo que se ve del canto al inclinarse.
+            final edge = _thickness * sin(angle).abs();
+            final faceHeight = 200 * cos(angle).abs();
+            final edgeSide = sin(angle) * cos(angle) >= 0 ? 1.0 : -1.0;
             return Stack(
+              clipBehavior: Clip.none,
               alignment: Alignment.center,
               children: [
+                // Sombra en la mesa: más pequeña y clara cuanto más alta.
                 Positioned(
-                  bottom: 20,
+                  bottom: 26,
                   child: Opacity(
-                    opacity: 0.8 - 0.55 * up,
+                    opacity: (0.85 - 0.6 * h).clamp(0, 1),
                     child: Transform.scale(
-                      scale: 1 - 0.5 * up,
+                      scale: 1 - 0.5 * h,
                       child: Container(
-                        width: 128,
-                        height: 18,
+                        width: 150,
+                        height: 22,
                         decoration: const BoxDecoration(
                           gradient: RadialGradient(
-                            colors: [Color(0xCC000000), Color(0x00000000)],
+                            colors: [Color(0xD9000000), Color(0x00000000)],
                           ),
                           borderRadius: BorderRadius.all(
-                            Radius.elliptical(64, 9),
+                            Radius.elliptical(75, 11),
                           ),
                         ),
                       ),
@@ -236,22 +304,57 @@ class _CoinDrawState extends State<_CoinDraw>
                   ),
                 ),
                 Transform.translate(
-                  offset: Offset(0, -80 * up),
+                  offset: Offset(0, -height + 5 * press),
                   child: Transform.scale(
-                    scale: 1 + 0.15 * up,
-                    child: Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, 0.0011)
-                        ..rotateX(angle),
-                      child: Transform(
-                        // La cruz se pinta del revés para que, al llegar
-                        // girada, se vea derecha.
+                    // Más grande cuanto más cerca de quien mira.
+                    scale: (1 + 0.38 * h) * (1 - 0.04 * press),
+                    child: Transform.rotate(
+                      angle: tilt,
+                      child: Stack(
                         alignment: Alignment.center,
-                        transform: showsHeads
-                            ? Matrix4.identity()
-                            : (Matrix4.identity()..rotateX(pi)),
-                        child: _CoinFace(heads: showsHeads),
+                        children: [
+                          // El canto: una banda plateada pegada al disco.
+                          if (edge > 0.5)
+                            Transform.translate(
+                              offset: Offset(0, edgeSide * edge / 2),
+                              child: Container(
+                                width: 200,
+                                height: faceHeight + edge,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.all(
+                                    Radius.elliptical(100, faceHeight / 2 + 1),
+                                  ),
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF4A4E52),
+                                      Color(0xFFB8BEC4),
+                                      Color(0xFF6B7075),
+                                      Color(0xFF3A3D40),
+                                    ],
+                                    stops: [0, 0.35, 0.7, 1],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          Transform(
+                            alignment: Alignment.center,
+                            transform: Matrix4.identity()
+                              ..setEntry(3, 2, 0.0011)
+                              ..rotateX(angle),
+                            child: Transform(
+                              // La cruz se pinta del revés para que, al
+                              // llegar girada, se vea derecha.
+                              alignment: Alignment.center,
+                              transform: showsHeads
+                                  ? Matrix4.identity()
+                                  : (Matrix4.identity()..rotateX(pi)),
+                              child: _CoinFace(
+                                heads: showsHeads,
+                                glint: (angle / (2 * pi)) % 1,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -266,12 +369,16 @@ class _CoinDrawState extends State<_CoinDraw>
 }
 
 class _CoinFace extends StatelessWidget {
-  const _CoinFace({required this.heads});
+  const _CoinFace({required this.heads, required this.glint});
 
   final bool heads;
 
+  /// Dónde va el brillo que cruza la cara al girar, de 0 a 1.
+  final double glint;
+
   @override
   Widget build(BuildContext context) {
+    final g = glint * 3 - 1.5;
     return Container(
       width: 200,
       height: 200,
@@ -284,21 +391,31 @@ class _CoinFace extends StatelessWidget {
           colors: [Color(0xFFE6EAEE), Color(0xFF9AA0A6), Color(0xFF5C6166)],
           stops: [0, 0.45, 1],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0xE6000000),
-            offset: Offset(0, 10),
-            blurRadius: 22,
-            spreadRadius: -6,
-          ),
-        ],
       ),
       child: ClipOval(
-        child: Image.asset(
-          heads
-              ? 'assets/images/sorteos/moneda-cara.jpg'
-              : 'assets/images/sorteos/moneda-cruz.jpg',
-          fit: BoxFit.cover,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.asset(
+              heads
+                  ? 'assets/images/sorteos/moneda-cara.jpg'
+                  : 'assets/images/sorteos/moneda-cruz.jpg',
+              fit: BoxFit.cover,
+            ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment(-1, g - 0.6),
+                  end: Alignment(1, g + 0.6),
+                  colors: const [
+                    Color(0x00FFFFFF),
+                    Color(0x55FFFFFF),
+                    Color(0x00FFFFFF),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -867,8 +984,11 @@ class _DuelDrawState extends State<_DuelDraw>
           );
         },
       );
+      // Sin Center: con él la caja solo encogía la carta, nunca la agrandaba,
+      // y se quedaba en su tamaño base aunque sobrara sitio.
       return Expanded(
-        child: Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
           child: FittedBox(
             child: top && widget.flipTop
                 ? RotatedBox(quarterTurns: 2, child: content)
