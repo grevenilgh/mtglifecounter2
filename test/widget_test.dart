@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mtglifecounter/app_icon.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/main.dart';
 import 'package:mtglifecounter/player_counter.dart';
+import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -131,16 +133,127 @@ void main() {
     });
   });
 
+  group('RoundTimer', () {
+    late DateTime now;
+    late SharedPreferences prefs;
+
+    setUp(() async {
+      now = DateTime(2026, 10, 30, 18);
+      SharedPreferences.setMockInitialValues({});
+      prefs = await SharedPreferences.getInstance();
+    });
+
+    test('la cuenta atrás descuenta las pausas', () {
+      final timer = RoundTimer(prefs, clock: () => now);
+      addTearDown(timer.dispose);
+      expect(timer.shown, const Duration(minutes: 50));
+
+      timer.start();
+      now = now.add(const Duration(minutes: 20));
+      timer.pause();
+      now = now.add(const Duration(minutes: 10)); // en pausa no cuenta
+      expect(timer.remaining, const Duration(minutes: 30));
+      expect(formatClock(timer.shown), '30:00');
+
+      // Con la ronda empezada no se cambia la duración.
+      timer.setRoundLength(const Duration(minutes: 40));
+      expect(timer.roundLength, const Duration(minutes: 50));
+
+      timer.start();
+      now = now.add(const Duration(minutes: 26));
+      expect(timer.warning, isTrue);
+      now = now.add(const Duration(minutes: 5));
+      timer.pause();
+      timer.start(); // ya acabada, no vuelve a arrancar
+      expect(timer.finished, isTrue);
+      expect(timer.running, isFalse);
+      expect(timer.shown, Duration.zero);
+    });
+
+    testWidgets('al llegar a cero avisa una sola vez', (tester) async {
+      var finishedCalls = 0;
+      final timer = RoundTimer(prefs, clock: () => now)
+        ..setRoundLength(const Duration(minutes: 5))
+        ..onFinished = () => finishedCalls++;
+      timer.start();
+      now = now.add(const Duration(minutes: 6));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 3));
+      expect(finishedCalls, 1);
+      expect(timer.elapsed, const Duration(minutes: 5));
+
+      timer.reset();
+      expect(timer.started, isFalse);
+      expect(timer.shown, const Duration(minutes: 5));
+      timer.dispose();
+    });
+
+    test('el cronómetro cuenta hacia delante y sobrevive a cerrar la app', () {
+      final timer = RoundTimer(
+        prefs,
+        mode: TimerMode.stopwatch,
+        clock: () => now,
+      );
+      addTearDown(timer.dispose);
+      timer.start();
+      now = now.add(const Duration(hours: 1, minutes: 2, seconds: 3));
+      expect(formatClock(timer.shown), '1:02:03');
+      expect(timer.warning, isFalse);
+      expect(timer.finished, isFalse);
+
+      final reopened = RoundTimer(
+        prefs,
+        mode: TimerMode.stopwatch,
+        clock: () => now,
+      );
+      addTearDown(reopened.dispose);
+      expect(reopened.running, isTrue);
+      expect(
+        reopened.elapsed,
+        const Duration(hours: 1, minutes: 2, seconds: 3),
+      );
+    });
+  });
+
+  test('cada jugador lleva un marco de carta distinto', () {
+    // Lo que se decidió con el usuario para las skins publicadas.
+    expect(CardFrame.forPlayers(Skin.alicante.top, Skin.alicante.bottom), (
+      CardFrame.negro,
+      CardFrame.verde,
+    ));
+    expect(CardFrame.forPlayers(Skin.fullTapped.top, Skin.fullTapped.bottom), (
+      CardFrame.rojo,
+      CardFrame.artefacto,
+    ));
+    expect(
+      CardFrame.forPlayers(Skin.customDefault.top, Skin.customDefault.bottom),
+      (CardFrame.azul, CardFrame.rojo),
+    );
+    // Con el mismo color, el de abajo se queda con su segunda opción.
+    const red = Color(0xFFC62828);
+    expect(CardFrame.forPlayers(red, red), (
+      CardFrame.rojo,
+      CardFrame.artefacto,
+    ));
+  });
+
+  test('cada skin lleva su icono', () {
+    expect(appIconFor(Skin.alicante.id), 'alicante');
+    expect(appIconFor(Skin.fullTapped.id), 'fulltapped');
+    expect(appIconFor(Skin.customDefault.id), 'mesa');
+  });
+
   testWidgets('tocar arriba suma y abajo resta', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
     final settings = AppSettings(prefs);
     final game = GameState();
     final storage = GameStorage(prefs, game);
+    final timer = RoundTimer(prefs);
 
     await tester.binding.setSurfaceSize(const Size(400, 800));
     await tester.pumpWidget(
-      MyApp(settings: settings, game: game, storage: storage),
+      MyApp(settings: settings, game: game, storage: storage, timer: timer),
     );
 
     // El panel de abajo ocupa la mitad inferior de la pantalla.

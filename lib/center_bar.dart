@@ -20,6 +20,7 @@ class CenterBar extends StatelessWidget {
     required this.leading,
     required this.trailing,
     this.stepper,
+    this.timer,
   });
 
   final Look look;
@@ -37,6 +38,9 @@ class CenterBar extends StatelessWidget {
   /// color del texto y si debe ser la versión pequeña.
   final Widget Function(Color color, bool compact)? stepper;
 
+  /// El reloj de ronda, si está activado en Ajustes.
+  final Widget? timer;
+
   @override
   Widget build(BuildContext context) {
     return switch (look.theme) {
@@ -49,6 +53,7 @@ class CenterBar extends StatelessWidget {
   List<Widget> _items(Widget Function(BarAction) button, Widget? step) => [
     for (final a in leading) button(a),
     ?step,
+    ?timer,
     for (final a in trailing) button(a),
   ];
 
@@ -98,7 +103,11 @@ class CenterBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(cards ? 30 : 22),
           border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
           boxShadow: const [
-            BoxShadow(color: Color(0x66000000), offset: Offset(0, 10), blurRadius: 30),
+            BoxShadow(
+              color: Color(0x66000000),
+              offset: Offset(0, 10),
+              blurRadius: 30,
+            ),
           ],
         ),
         child: FittedBox(
@@ -188,7 +197,10 @@ class CenterBar extends StatelessWidget {
                               colors: [Color(0xFFF2E8CF), Color(0xFFDFCDA3)],
                             ),
                             boxShadow: const [
-                              BoxShadow(color: Color(0xFF0B0705), offset: Offset(0, 2)),
+                              BoxShadow(
+                                color: Color(0xFF0B0705),
+                                offset: Offset(0, 2),
+                              ),
                             ],
                           ),
                           child: stepper!(kInk, true),

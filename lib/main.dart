@@ -1,15 +1,20 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:mtglifecounter/app_icon.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
+import 'package:mtglifecounter/draws.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/player_counter.dart';
+import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/timer_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
@@ -42,8 +47,13 @@ Future<void> main() async {
   final game = GameState();
   final storage = GameStorage(prefs, game);
   if (settings.rememberGame) storage.load();
+  final timer = RoundTimer(
+    prefs,
+    mode: settings.timerMode,
+    roundLength: Duration(minutes: settings.roundMinutes),
+  );
 
-  runApp(MyApp(settings: settings, game: game, storage: storage));
+  runApp(MyApp(settings: settings, game: game, storage: storage, timer: timer));
 }
 
 class MyApp extends StatelessWidget {
@@ -52,11 +62,13 @@ class MyApp extends StatelessWidget {
     required this.settings,
     required this.game,
     required this.storage,
+    required this.timer,
   });
 
   final AppSettings settings;
   final GameState game;
   final GameStorage storage;
+  final RoundTimer timer;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +81,12 @@ class MyApp extends StatelessWidget {
           brightness: Brightness.dark,
         ),
       ),
-      home: MyHomePage(settings: settings, game: game, storage: storage),
+      home: MyHomePage(
+        settings: settings,
+        game: game,
+        storage: storage,
+        timer: timer,
+      ),
     );
   }
 }
@@ -80,11 +97,13 @@ class MyHomePage extends StatefulWidget {
     required this.settings,
     required this.game,
     required this.storage,
+    required this.timer,
   });
 
   final AppSettings settings;
   final GameState game;
   final GameStorage storage;
+  final RoundTimer timer;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -94,21 +113,24 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ValueNotifier<bool> _resetNotifier = ValueNotifier<bool>(false);
   // La pantalla entera, para que los paneles enseñen su trozo de la imagen.
   final GlobalKey _screenKey = GlobalKey();
-  final Random _random = Random();
   int _lifeChangeAmount = 1;
+  // La barra enseña los sorteos en vez de sus botones normales.
+  bool _drawsOpen = false;
+  String? _iconSkin;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    widget.settings.addListener(_syncStorage);
-    _syncStorage();
+    widget.settings.addListener(_syncSettings);
+    _syncSettings();
+    widget.timer.onFinished = _onTimeUp;
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    widget.settings.removeListener(_syncStorage);
+    widget.settings.removeListener(_syncSettings);
     _resetNotifier.dispose();
     super.dispose();
   }
@@ -119,8 +141,37 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     if (state != AppLifecycleState.resumed) widget.storage.flush();
   }
 
-  void _syncStorage() {
-    widget.storage.enabled = widget.settings.rememberGame;
+  void _syncSettings() {
+    final settings = widget.settings;
+    widget.storage.enabled = settings.rememberGame;
+    widget.timer
+      ..mode = settings.timerMode
+      ..setRoundLength(Duration(minutes: settings.roundMinutes));
+    // El icono del lanzador sigue a la skin.
+    if (settings.skinId != _iconSkin) {
+      _iconSkin = settings.skinId;
+      setAppIcon(settings.skinId);
+    }
+  }
+
+  // Al acabar la ronda el móvil vibra tres veces, para notarlo en la mesa.
+  Future<void> _onTimeUp() async {
+    if (!widget.settings.timerVibrate) return;
+    for (var i = 0; i < 3; i++) {
+      await HapticFeedback.vibrate();
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+  }
+
+  void _openTimer() {
+    showTimerSheet(context, timer: widget.timer, settings: widget.settings);
+  }
+
+  void _openDraw(
+    Future<void> Function(BuildContext, {required bool flipTop}) draw,
+  ) {
+    setState(() => _drawsOpen = false);
+    draw(context, flipTop: widget.game.rotated);
   }
 
   void _resetGame() {
@@ -140,48 +191,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       MaterialPageRoute<void>(
         builder: (context) => SettingsPage(settings: widget.settings),
       ),
-    );
-  }
-
-  void _coinFlip() {
-    final result = _random.nextBool() ? 'Cara' : 'Cruz';
-    _showResultDialog('Lanzamiento de moneda', result, 40);
-  }
-
-  void _rollDice() {
-    final diceRoll = _random.nextInt(20) + 1;
-    _showResultDialog('Lanzamiento de dado D20', '$diceRoll', 80);
-  }
-
-  void _showResultDialog(String title, String result, double fontSize) {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[800],
-          title: Text(title, style: const TextStyle(color: Colors.white)),
-          content: Text(
-            result,
-            style: TextStyle(
-              fontSize: fontSize,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'Cerrar',
-                style: TextStyle(color: Colors.white),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
     );
   }
 
@@ -241,6 +250,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           imageOpacity: settings.imageOpacity / 100,
           frameOpacity: settings.frameOpacity / 100,
           historyOpacity: settings.historyOpacity / 100,
+          zoneMarks: settings.zoneMarks,
           focus: settings.focus,
           animations: settings.animations,
           screenKey: _screenKey,
@@ -255,11 +265,35 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           look: look,
           color: barColor,
           alpha: settings.barOpacity / 100,
-          leading: [
-            BarAction(Icons.refresh, 'Reiniciar partida', _showResetConfirmationDialog),
-            BarAction(Icons.swap_vert, 'Girar el panel de arriba', game.toggleRotation),
-          ],
-          stepper: settings.showStepper
+          leading: _drawsOpen
+              ? [
+                  BarAction(
+                    Icons.arrow_back,
+                    'Volver',
+                    () => setState(() => _drawsOpen = false),
+                  ),
+                ]
+              : [
+                  BarAction(
+                    Icons.refresh,
+                    'Reiniciar partida',
+                    _showResetConfirmationDialog,
+                  ),
+                  BarAction(
+                    Icons.swap_vert,
+                    'Girar el panel de arriba',
+                    game.toggleRotation,
+                  ),
+                ],
+          timer: settings.showTimer && !_drawsOpen
+              ? TimerButton(
+                  timer: widget.timer,
+                  look: look,
+                  warningEnabled: settings.timerWarning,
+                  onTap: _openTimer,
+                )
+              : null,
+          stepper: settings.showStepper && !_drawsOpen
               ? (color, compact) => NumberStepper(
                   resetNotifier: _resetNotifier,
                   initialValue: _lifeChangeAmount,
@@ -272,19 +306,46 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   },
                 )
               : null,
-          trailing: [
-            BarAction(Icons.monetization_on_outlined, 'Lanzar moneda', _coinFlip),
-            BarAction(Icons.casino_outlined, 'Lanzar dado', _rollDice),
-            BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
-          ],
+          // Los sorteos van tras un botón que despliega la barra.
+          trailing: _drawsOpen
+              ? [
+                  BarAction(
+                    Icons.monetization_on_outlined,
+                    'Lanzar moneda',
+                    () => _openDraw(showCoinFlip),
+                  ),
+                  BarAction(
+                    Icons.hexagon_outlined,
+                    'Tirar el dado D20',
+                    () => _openDraw(showDiceRoll),
+                  ),
+                  BarAction(
+                    Icons.style_outlined,
+                    'Duelo: piedra, papel o tijera',
+                    () => _openDraw(showDuel),
+                  ),
+                ]
+              : [
+                  BarAction(
+                    Icons.casino_outlined,
+                    'Sorteos: moneda, dado y duelo',
+                    () => setState(() => _drawsOpen = true),
+                  ),
+                  BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
+                ],
         );
-        Widget panel(PlayerState player, Color color) => PlayerCounter(
-          player: player,
-          color: color,
-          style: style,
-          lifeChangeAmount: amount,
-          onLifeChanged: _onLifeChanged,
-        );
+        // En el borde antiguo cada jugador lleva el marco de carta que mejor
+        // va con su color, y nunca el mismo que el otro.
+        final frames = CardFrame.forPlayers(skin.top, skin.bottom);
+        Widget panel(PlayerState player, Color color, CardFrame frame) =>
+            PlayerCounter(
+              player: player,
+              color: color,
+              frame: frame,
+              style: style,
+              lifeChangeAmount: amount,
+              onLifeChanged: _onLifeChanged,
+            );
         return Scaffold(
           backgroundColor: Colors.black,
           body: Stack(
@@ -299,7 +360,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                     AppTheme.original => EdgeInsets.zero,
                     AppTheme.modern =>
                       look.isCards ? const EdgeInsets.all(12) : EdgeInsets.zero,
-                    AppTheme.classic => const EdgeInsets.fromLTRB(13, 11, 13, 11),
+                    // El marco de carta es gordo: ocupa el margen de antes.
+                    AppTheme.classic => const EdgeInsets.all(5),
                   },
                   child: Stack(
                     children: [
@@ -308,11 +370,13 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                           Expanded(
                             child: Transform.rotate(
                               angle: game.rotated ? pi : 0,
-                              child: panel(game.top, skin.top),
+                              child: panel(game.top, skin.top, frames.$1),
                             ),
                           ),
                           SizedBox(height: look.barGap),
-                          Expanded(child: panel(game.bottom, skin.bottom)),
+                          Expanded(
+                            child: panel(game.bottom, skin.bottom, frames.$2),
+                          ),
                         ],
                       ),
                       // La barra va centrada: en el hueco entre los paneles

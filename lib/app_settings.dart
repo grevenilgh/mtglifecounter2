@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:mtglifecounter/look.dart';
+import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -41,6 +42,12 @@ class AppSettings extends ChangeNotifier {
     _frameOpacity = _prefs.getInt(_kFrameOpacity) ?? 92;
     _barOpacity = _prefs.getInt(_kBarOpacity);
     _historyOpacity = _prefs.getInt(_kHistoryOpacity);
+    _zoneMarks = ZoneMarks.fromName(_prefs.getString(_kZoneMarks));
+    _showTimer = _prefs.getBool(_kShowTimer) ?? true;
+    _timerMode = TimerMode.fromName(_prefs.getString(_kTimerMode));
+    _roundMinutes = _prefs.getInt(_kRoundMinutes) ?? 50;
+    _timerWarning = _prefs.getBool(_kTimerWarning) ?? true;
+    _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
     _animations = _prefs.getBool(_kAnimations) ?? true;
     _showStepper = _prefs.getBool(_kShowStepper) ?? false;
   }
@@ -58,6 +65,16 @@ class AppSettings extends ChangeNotifier {
   static const _kFrameOpacity = 'frameOpacity';
   static const _kBarOpacity = 'barOpacity';
   static const _kHistoryOpacity = 'historyOpacity';
+  static const _kZoneMarks = 'zoneMarks';
+  static const _kShowTimer = 'showTimer';
+  static const _kTimerMode = 'timerMode';
+  static const _kRoundMinutes = 'roundMinutes';
+  static const _kTimerWarning = 'timerWarning';
+  static const _kTimerVibrate = 'timerVibrate';
+
+  /// Límites de la duración de la ronda, en minutos.
+  static const int minRoundMinutes = 5;
+  static const int maxRoundMinutes = 120;
   static const _kAnimations = 'animations';
   static const _kShowStepper = 'showStepper';
 
@@ -81,6 +98,12 @@ class AppSettings extends ChangeNotifier {
   late int _frameOpacity;
   int? _barOpacity;
   int? _historyOpacity;
+  late ZoneMarks _zoneMarks;
+  late bool _showTimer;
+  late TimerMode _timerMode;
+  late int _roundMinutes;
+  late bool _timerWarning;
+  late bool _timerVibrate;
   late bool _animations;
   late bool _showStepper;
 
@@ -217,6 +240,58 @@ class AppSettings extends ChangeNotifier {
   set frameOpacity(int value) {
     _frameOpacity = value.clamp(minFrameOpacity, 100);
     _prefs.setInt(_kFrameOpacity, _frameOpacity);
+    notifyListeners();
+  }
+
+  /// Cómo se distingue la mitad que suma de la que resta.
+  ZoneMarks get zoneMarks => _zoneMarks;
+
+  set zoneMarks(ZoneMarks value) {
+    _zoneMarks = value;
+    _prefs.setString(_kZoneMarks, value.name);
+    notifyListeners();
+  }
+
+  /// Si la barra enseña el temporizador de ronda.
+  bool get showTimer => _showTimer;
+  TimerMode get timerMode => _timerMode;
+
+  /// Duración de la ronda en la cuenta atrás (50 minutos si no se toca).
+  int get roundMinutes => _roundMinutes;
+
+  /// Avisar a falta de 5 minutos.
+  bool get timerWarning => _timerWarning;
+
+  /// Vibrar al acabar el tiempo.
+  bool get timerVibrate => _timerVibrate;
+
+  set showTimer(bool value) {
+    _showTimer = value;
+    _prefs.setBool(_kShowTimer, value);
+    notifyListeners();
+  }
+
+  set timerMode(TimerMode value) {
+    _timerMode = value;
+    _prefs.setString(_kTimerMode, value.name);
+    notifyListeners();
+  }
+
+  set roundMinutes(int value) {
+    _roundMinutes = value.clamp(minRoundMinutes, maxRoundMinutes);
+    _prefs.setInt(_kRoundMinutes, _roundMinutes);
+    notifyListeners();
+  }
+
+  set timerWarning(bool value) {
+    _timerWarning = value;
+    _prefs.setBool(_kTimerWarning, value);
+    notifyListeners();
+  }
+
+  set timerVibrate(bool value) {
+    _timerVibrate = value;
+    _prefs.setBool(_kTimerVibrate, value);
     notifyListeners();
   }
 

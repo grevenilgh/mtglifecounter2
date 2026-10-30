@@ -17,6 +17,7 @@ class PanelStyle {
     required this.imageOpacity,
     required this.frameOpacity,
     required this.historyOpacity,
+    required this.zoneMarks,
     required this.focus,
     required this.animations,
     required this.screenKey,
@@ -36,6 +37,9 @@ class PanelStyle {
 
   /// De 0 a 1: el fondo del historial.
   final double historyOpacity;
+
+  /// Cómo se distingue la mitad que suma de la que resta.
+  final ZoneMarks zoneMarks;
   final bool focus;
   final bool animations;
 
@@ -46,6 +50,9 @@ class PanelStyle {
 class PlayerCounter extends StatefulWidget {
   final PlayerState player;
   final Color color;
+
+  /// El marco de carta del jugador en el borde antiguo.
+  final CardFrame frame;
   final PanelStyle style;
   final int lifeChangeAmount;
   final VoidCallback onLifeChanged;
@@ -54,6 +61,7 @@ class PlayerCounter extends StatefulWidget {
     super.key,
     required this.player,
     required this.color,
+    required this.frame,
     required this.style,
     required this.lifeChangeAmount,
     required this.onLifeChanged,
@@ -178,7 +186,7 @@ class _PlayerCounterState extends State<PlayerCounter>
         ),
         AppTheme.modern => zone,
         AppTheme.classic => _ClassicFrame(
-          color: widget.color,
+          frame: widget.frame,
           alpha: style.frameOpacity,
           child: zone,
         ),
@@ -228,53 +236,62 @@ class _CardFrame extends StatelessWidget {
   }
 }
 
-/// Marco fino de carta antigua: borde negro, jaspeado del color del jugador y
-/// una ventana biselada para la imagen.
+/// Marco de carta antigua: el borde negro de la carta, el marco gordo con la
+/// textura de su color (ver [CardFrame]) y una ventana biselada para la imagen.
 class _ClassicFrame extends StatelessWidget {
   const _ClassicFrame({
-    required this.color,
+    required this.frame,
     required this.alpha,
     required this.child,
   });
 
-  final Color color;
+  final CardFrame frame;
   final double alpha;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
+        color: Colors.black.withValues(alpha: alpha),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
           BoxShadow(
-            color: Colors.black.withValues(alpha: alpha),
-            spreadRadius: 5,
-          ),
-          const BoxShadow(
             color: Color(0xB3000000),
             offset: Offset(0, 8),
             blurRadius: 18,
           ),
         ],
       ),
-      child: Mottled(
-        color: color,
-        alpha: alpha,
-        borderRadius: BorderRadius.circular(14),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Container(
-            // Bisel: sombra arriba e izquierda, luz abajo y derecha.
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xA6000000), width: 3),
-                left: BorderSide(color: Color(0xA6000000), width: 3),
-                right: BorderSide(color: Color(0x73FFF0D2), width: 3),
-                bottom: BorderSide(color: Color(0x73FFF0D2), width: 3),
-              ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            image: DecorationImage(
+              image: AssetImage(frame.asset),
+              // Las texturas están a 1,5 píxeles por dp: así el dibujo
+              // tiene el mismo tamaño en todos los móviles.
+              fit: BoxFit.none,
+              scale: 1.5,
+              repeat: ImageRepeat.repeat,
+              opacity: alpha,
             ),
-            child: ClipRect(child: child),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(13),
+            child: Container(
+              // Bisel: sombra arriba e izquierda, luz abajo y derecha.
+              decoration: const BoxDecoration(
+                border: Border(
+                  top: BorderSide(color: Color(0xA6000000), width: 3),
+                  left: BorderSide(color: Color(0xA6000000), width: 3),
+                  right: BorderSide(color: Color(0x73FFF0D2), width: 3),
+                  bottom: BorderSide(color: Color(0x73FFF0D2), width: 3),
+                ),
+              ),
+              child: ClipRect(child: child),
+            ),
           ),
         ),
       ),
@@ -350,35 +367,20 @@ class _Zone extends StatelessWidget {
               ),
             ),
           ),
-        // Tono sutil: la mitad que suma algo más clara, la que resta más oscura.
-        const Column(
-          children: [
-            Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x1AFFFFFF), Color(0x0AFFFFFF)],
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [Color(0x1A000000), Color(0x38000000)],
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
+        // La mitad que suma algo más clara y la que resta más oscura.
+        _Halves(strong: style.zoneMarks.isStrong),
+        if (style.zoneMarks.hasLine)
+          Padding(
+            padding: EdgeInsets.only(left: 10, right: inset + 4),
+            child: Center(child: _MidLine(classic: look.isClassic)),
+          ),
         Padding(
-          padding: EdgeInsets.fromLTRB(12, plusTop + 50, inset + 4, minusBottom + 50),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            plusTop + 50,
+            inset + 4,
+            minusBottom + 50,
+          ),
           child: Center(
             child: _HitNumber(
               player: player,
@@ -393,13 +395,17 @@ class _Zone extends StatelessWidget {
           top: plusTop,
           left: 0,
           right: inset,
-          child: Center(child: _Pip(look: look, color: color, sign: '+')),
+          child: Center(
+            child: _Pip(look: look, color: color, sign: '+'),
+          ),
         ),
         Positioned(
           bottom: minusBottom,
           left: 0,
           right: inset,
-          child: Center(child: _Pip(look: look, color: color, sign: '−')),
+          child: Center(
+            child: _Pip(look: look, color: color, sign: '−'),
+          ),
         ),
         // Borde que se tiñe al cambiar la vida.
         IgnorePointer(
@@ -499,6 +505,91 @@ Color hitColor({required bool up, required Color panel}) {
       : const Color(0xFFF85050);
 }
 
+/// El tono de las dos mitades: arriba más claro (suma), abajo más oscuro
+/// (resta).
+class _Halves extends StatelessWidget {
+  const _Halves({required this.strong});
+
+  final bool strong;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = strong ? 2.4 : 1.0;
+    Color white(double a) => Colors.white.withValues(alpha: a * k);
+    Color black(double a) => Colors.black.withValues(alpha: a * k);
+    return Column(
+      children: [
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [white(0.1), white(0.04)],
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [black(0.1), black(0.22)],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Línea discontinua entre la mitad que suma y la que resta. Va por detrás
+/// del número.
+class _MidLine extends StatelessWidget {
+  const _MidLine({required this.classic});
+
+  final bool classic;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      size: const Size(double.infinity, 2),
+      painter: _DashPainter(
+        classic ? const Color(0x99F6EDD5) : const Color(0x80FFFFFF),
+      ),
+    );
+  }
+}
+
+class _DashPainter extends CustomPainter {
+  _DashPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    const dash = 10.0, gap = 8.0;
+    final y = size.height / 2;
+    for (var x = 0.0; x < size.width; x += dash + gap) {
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(min(x + dash, size.width), y),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashPainter old) => old.color != color;
+}
+
 /// El número de vidas con el efecto golpe.
 class _HitNumber extends StatelessWidget {
   const _HitNumber({
@@ -553,10 +644,16 @@ class _HitNumber extends StatelessWidget {
             final fill = Color.lerp(look.numberColor, glow, 0.45 * fade)!;
             final shadows = [
               if (fade > 0)
-                Shadow(color: Colors.black.withValues(alpha: 0.45 * fade), blurRadius: 4),
+                Shadow(
+                  color: Colors.black.withValues(alpha: 0.45 * fade),
+                  blurRadius: 4,
+                ),
               ..._baseShadows(),
               if (fade > 0)
-                Shadow(color: glow.withValues(alpha: 0.9 * fade), blurRadius: 38),
+                Shadow(
+                  color: glow.withValues(alpha: 0.9 * fade),
+                  blurRadius: 38,
+                ),
             ];
             // Al ganar crece un poco; al perder se sacude de lado a lado.
             final scale = up && active ? 1 + 0.08 * (1 - t) : 1.0;
@@ -589,11 +686,7 @@ class _HitNumber extends StatelessWidget {
 /// Botón visual de + o −. Va en un círculo para que se vea sobre cualquier
 /// imagen.
 class _Pip extends StatelessWidget {
-  const _Pip({
-    required this.look,
-    required this.color,
-    required this.sign,
-  });
+  const _Pip({required this.look, required this.color, required this.sign});
 
   final Look look;
   final Color color;
@@ -638,7 +731,9 @@ class _Pip extends StatelessWidget {
   // quedan centrados dentro del círculo.
   Widget _modern() {
     final icon = sign == '+' ? Icons.add_rounded : Icons.remove_rounded;
-    final edge = look.isCards ? shade(color, 1.3) : Colors.white.withValues(alpha: 0.55);
+    final edge = look.isCards
+        ? shade(color, 1.3)
+        : Colors.white.withValues(alpha: 0.55);
     return Container(
       width: 46,
       height: 46,
@@ -740,7 +835,10 @@ class _History extends StatelessWidget {
         bottom: 0,
         right: 0,
         width: 76,
-        child: ColoredBox(color: Colors.black.withValues(alpha: alpha), child: list),
+        child: ColoredBox(
+          color: Colors.black.withValues(alpha: alpha),
+          child: list,
+        ),
       ),
       AppTheme.modern => Positioned(
         // En cristal la barra flota sobre el borde de dentro del panel.

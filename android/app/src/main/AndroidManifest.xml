@@ -21,11 +21,45 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+        </activity>
+        <!-- Una entrada del lanzador por skin, cada una con su icono y su
+             nombre. MainActivity.kt deja activa solo la de la skin elegida. -->
+        <activity-alias
+            android:name=".AliasAlicante"
+            android:targetActivity=".MainActivity"
+            android:label="AlicanteMTG"
+            android:icon="@mipmap/launcher_icon"
+            android:enabled="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-        </activity>
+        </activity-alias>
+        <activity-alias
+            android:name=".AliasFullTapped"
+            android:targetActivity=".MainActivity"
+            android:label="Full Tapped"
+            android:icon="@mipmap/ic_ft"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name=".AliasMesa"
+            android:targetActivity=".MainActivity"
+            android:label="Contador de vidas"
+            android:icon="@mipmap/ic_mesa"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data

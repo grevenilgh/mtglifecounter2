@@ -53,6 +53,31 @@ enum BackgroundMode {
       values.firstWhere((m) => m.name == name, orElse: () => screen);
 }
 
+/// Cómo se distingue la mitad del panel que suma de la que resta.
+enum ZoneMarks {
+  /// La de arriba algo más clara y la de abajo algo más oscura.
+  soft('Tono suave'),
+
+  /// Lo mismo, bastante más marcado.
+  strong('Tono marcado'),
+
+  /// Una línea discontinua en medio.
+  line('Línea'),
+
+  /// Tono suave y línea.
+  both('Tono y línea');
+
+  const ZoneMarks(this.label);
+
+  final String label;
+
+  bool get hasLine => this == line || this == both;
+  bool get isStrong => this == strong;
+
+  static ZoneMarks fromName(String? name) =>
+      values.firstWhere((m) => m.name == name, orElse: () => both);
+}
+
 /// Cómo se pinta el color del jugador encima de la imagen.
 enum TintMode {
   /// Una capa uniforme del color.
@@ -60,6 +85,48 @@ enum TintMode {
 
   /// La imagen limpia; el color solo en el borde del panel.
   edge,
+}
+
+/// Marco de carta de Alpha del borde antiguo. No es un color liso sino una
+/// textura (`assets/images/marcos/`), pintada a 1 dp por unidad.
+enum CardFrame {
+  azul,
+  blanco,
+  negro,
+  rojo,
+  verde,
+  artefacto,
+  tierra;
+
+  String get asset => 'assets/images/marcos/$name.jpg';
+
+  /// Los marcos que mejor van con [color], del mejor al peor.
+  static List<CardFrame> rankFor(Color color) {
+    final hsv = HSVColor.fromColor(color);
+    final h = hsv.hue, s = hsv.saturation, v = hsv.value;
+    // Poco color: blanco si es claro, negro si es casi negro y, si no,
+    // artefacto (la berenjena de Full Tapped, por ejemplo).
+    if (s < 0.35 || v < 0.3) {
+      if (v > 0.75) return const [blanco, tierra, artefacto];
+      if (v < 0.15) return const [negro, tierra, artefacto];
+      return const [artefacto, tierra, negro];
+    }
+    if (h < 20 || h >= 330) return const [rojo, artefacto, negro];
+    if (h < 50) return const [artefacto, rojo, tierra];
+    if (h < 70) return const [blanco, artefacto, tierra];
+    if (h < 170) return const [verde, azul, tierra];
+    if (h < 250) return const [azul, verde, negro];
+    // Morados y lilas: en Magic el negro tira a morado.
+    return const [negro, azul, tierra];
+  }
+
+  /// Un marco para cada jugador, nunca el mismo: si coinciden, el de abajo
+  /// se queda con su siguiente opción.
+  static (CardFrame, CardFrame) forPlayers(Color top, Color bottom) {
+    final first = rankFor(top).first;
+    final second = rankFor(bottom).firstWhere((f) => f != first);
+    return (first, second);
+  }
 }
 
 /// Lo que cambia de un tema a otro, ya resuelto para pintar.
@@ -87,7 +154,9 @@ class Look {
     AppTheme.modern => Look._(
       theme: theme,
       variant: variant,
-      numberFont: variant == ModernVariant.glass ? 'Barlow Condensed' : 'Outfit',
+      numberFont: variant == ModernVariant.glass
+          ? 'Barlow Condensed'
+          : 'Outfit',
       numberScale: variant == ModernVariant.glass ? 1.15 : 1,
       veil: 0.2,
       tintMode: variant == ModernVariant.cards ? TintMode.edge : TintMode.veil,
@@ -121,8 +190,10 @@ class Look {
   final bool focusByDefault;
 
   bool get isClassic => theme == AppTheme.classic;
-  bool get isCards => theme == AppTheme.modern && variant == ModernVariant.cards;
-  bool get isGlass => theme == AppTheme.modern && variant == ModernVariant.glass;
+  bool get isCards =>
+      theme == AppTheme.modern && variant == ModernVariant.cards;
+  bool get isGlass =>
+      theme == AppTheme.modern && variant == ModernVariant.glass;
 
   /// Hueco entre los dos paneles: la barra va en él sin tapar nada.
   /// Con 0 la barra flota encima de los paneles.
@@ -147,8 +218,7 @@ class Look {
   };
 
   /// Color claro del texto del número.
-  Color get numberColor =>
-      isClassic ? const Color(0xFFF6EDD5) : Colors.white;
+  Color get numberColor => isClassic ? const Color(0xFFF6EDD5) : Colors.white;
 
   /// Estilo del número de vidas con la fuente del tema.
   TextStyle numberStyle(double fontSize) {

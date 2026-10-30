@@ -3,6 +3,7 @@ import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/look.dart';
+import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
 
 const Color kSettingsBackground = Color(0xFF111113);
@@ -111,7 +112,8 @@ class SettingsPage extends StatelessWidget {
                 _ColorRow(
                   label: 'Jugador de arriba',
                   color: custom.top,
-                  onChanged: (c) => settings.customSkin = custom.copyWith(top: c),
+                  onChanged: (c) =>
+                      settings.customSkin = custom.copyWith(top: c),
                 ),
                 _ColorRow(
                   label: 'Jugador de abajo',
@@ -122,7 +124,8 @@ class SettingsPage extends StatelessWidget {
                 _ColorRow(
                   label: 'Barra central',
                   color: custom.bar,
-                  onChanged: (c) => settings.customSkin = custom.copyWith(bar: c),
+                  onChanged: (c) =>
+                      settings.customSkin = custom.copyWith(bar: c),
                 ),
                 const _Label('Imagen de fondo'),
                 Wrap(
@@ -234,6 +237,19 @@ class SettingsPage extends StatelessWidget {
                   ),
                 ],
               ),
+              const _Label('Mitad que suma y mitad que resta'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final marks in ZoneMarks.values)
+                    _Chip(
+                      label: marks.label,
+                      selected: settings.zoneMarks == marks,
+                      onTap: () => settings.zoneMarks = marks,
+                    ),
+                ],
+              ),
               const _Label('Opacidad de la barra central'),
               _PercentSlider(
                 value: settings.barOpacity,
@@ -285,8 +301,99 @@ class SettingsPage extends StatelessWidget {
                     value: settings.showStepper,
                     onChanged: (v) => settings.showStepper = v,
                   ),
+                  _SwitchRow(
+                    title: 'Temporizador de ronda',
+                    subtitle: 'El reloj en la barra.',
+                    value: settings.showTimer,
+                    onChanged: (v) => settings.showTimer = v,
+                  ),
                 ],
               ),
+              const _SectionTitle('Temporizador'),
+              const _Label('Modo'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final mode in TimerMode.values)
+                    _Chip(
+                      label: mode.label,
+                      selected: settings.timerMode == mode,
+                      onTap: () => settings.timerMode = mode,
+                    ),
+                ],
+              ),
+              _Help(
+                settings.timerMode == TimerMode.countdown
+                    ? 'Cuenta hacia cero el tiempo de la ronda.'
+                    : 'Cuenta hacia delante lo que dura la partida, sin límite '
+                          'ni aviso.',
+              ),
+              if (settings.timerMode == TimerMode.countdown) ...[
+                const SizedBox(height: 12),
+                _SettingsCard(
+                  children: [
+                    ListTile(
+                      title: const Text(
+                        'Duración de la ronda',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      subtitle: const Text(
+                        'Por defecto, 50 minutos',
+                        style: TextStyle(color: kMutedText),
+                      ),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Cinco minutos menos',
+                            color: Colors.white,
+                            onPressed:
+                                settings.roundMinutes >
+                                    AppSettings.minRoundMinutes
+                                ? () => settings.roundMinutes -= 5
+                                : null,
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                          SizedBox(
+                            width: 58,
+                            child: Text(
+                              '${settings.roundMinutes} min',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Cinco minutos más',
+                            color: Colors.white,
+                            onPressed:
+                                settings.roundMinutes <
+                                    AppSettings.maxRoundMinutes
+                                ? () => settings.roundMinutes += 5
+                                : null,
+                            icon: const Icon(Icons.add_circle_outline),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _SwitchRow(
+                      title: 'Avisar a falta de 5 minutos',
+                      subtitle: 'El reloj de la barra se pone ámbar.',
+                      value: settings.timerWarning,
+                      onChanged: (v) => settings.timerWarning = v,
+                    ),
+                    _SwitchRow(
+                      title: 'Vibrar al acabar el tiempo',
+                      subtitle: 'Un aviso que se nota con el móvil en la mesa.',
+                      value: settings.timerVibrate,
+                      onChanged: (v) => settings.timerVibrate = v,
+                    ),
+                  ],
+                ),
+              ],
               const _SectionTitle('Partida'),
               _SettingsCard(
                 children: [
@@ -528,7 +635,10 @@ class _ColorRow extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
