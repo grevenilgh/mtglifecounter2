@@ -8,6 +8,7 @@ const _channel = MethodChannel('mtglifecounter/app_icon');
 /// son las de `MainActivity.kt`.
 String appIconFor(String skinId) {
   if (skinId == Skin.fullTapped.id) return 'fulltapped';
+  if (skinId == Skin.oldSchool.id) return 'oldschool';
   if (skinId == Skin.customDefault.id) return 'mesa';
   return 'alicante';
 }

@@ -130,6 +130,9 @@ void main() {
       expect(Skin.alicante.top.toARGB32(), 0xFF673AB7);
       expect(Skin.fullTapped.top.toARGB32(), 0xFF9B1D20);
       expect(Skin.fullTapped.bottom.toARGB32(), 0xFF3D2B3D);
+      expect(Skin.oldSchool.top.toARGB32(), 0xFF006AA9);
+      expect(Skin.oldSchool.bottom.toARGB32(), 0xFF484848);
+      expect(Skin.oldSchool.bar.toARGB32(), 0xFF1F2020);
     });
   });
 
@@ -246,6 +249,7 @@ void main() {
   test('cada skin lleva su icono', () {
     expect(appIconFor(Skin.alicante.id), 'alicante');
     expect(appIconFor(Skin.fullTapped.id), 'fulltapped');
+    expect(appIconFor(Skin.oldSchool.id), 'oldschool');
     expect(appIconFor(Skin.customDefault.id), 'mesa');
   });
 

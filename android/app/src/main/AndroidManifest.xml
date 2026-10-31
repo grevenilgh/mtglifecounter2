@@ -49,6 +49,18 @@
             </intent-filter>
         </activity-alias>
         <activity-alias
+            android:name=".AliasOldSchool"
+            android:targetActivity=".MainActivity"
+            android:label="Old School MTG"
+            android:icon="@mipmap/ic_osm"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
             android:name=".AliasMesa"
             android:targetActivity=".MainActivity"
             android:label="Contador de vidas"

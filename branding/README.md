@@ -34,3 +34,16 @@ El bundle id de iOS sigue siendo `com.example.mtglifecounter` en las dos skins.
 También puedes consultar el código completo de la skin con `git show skin-fulltapped:lib/main.dart`.
 
 > Si vas a mantener las dos skins, lo razonable es convertirlas en *flavors* de Flutter (o una clase `AppSkin` con estos valores) en lugar de tener dos ramas que divergen.
+
+## Old School (desde octubre de 2026)
+
+Skin para [Old School MTG Channel](https://www.oldschoolmtgchannel.com/), nacida ya dentro de la app única (nunca fue una rama). Los colores salen de su web:
+
+| | **Old School** (`Skin.oldSchool`, id `oldschool`) |
+|---|---|
+| Nombre en el lanzador (Android) | `Old School MTG` (`AliasOldSchool`) |
+| Imagen de fondo | `assets/images/oldschool.png`: su logo con la gorra y el micro, a 1000 px y sin el negro de alrededor |
+| Color jugador de arriba | `Color(0xFF006AA9)`: el azul de la cabecera de la web |
+| Color jugador de abajo | `Color(0xFF484848)`: el gris carbón del logo |
+| Barra central | `Color(0xFF1F2020)`: el casi negro de los textos de la web |
+| Icono | `ic_osm`: el logo entero sobre el azul `#006AA9` (fondo del icono adaptativo `ic_osm_background`) |

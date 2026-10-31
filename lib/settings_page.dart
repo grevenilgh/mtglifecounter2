@@ -171,21 +171,30 @@ class SettingsPage extends StatelessWidget {
           title: 'Skin',
           icon: Icons.color_lens_outlined,
           children: [
-            Row(
-              children: [
-                for (final skin in [...Skin.presets, custom]) ...[
-                  if (skin != Skin.presets.first) const SizedBox(width: 10),
-                  Expanded(
-                    child: _SkinCard(
-                      skin: skin,
-                      image: settings.backgroundOf(skin),
-                      selected: settings.skinId == skin.id,
-                      onTap: () => settings.skinId = skin.id,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+            // De dos en dos: con las cuatro en fila no cabían los nombres.
+            for (final (i, pair) in _pairs([...Skin.presets, custom]).indexed)
+              Padding(
+                padding: EdgeInsets.only(top: i == 0 ? 0 : 10),
+                child: Row(
+                  children: [
+                    for (final (j, skin) in pair.indexed) ...[
+                      if (j > 0) const SizedBox(width: 10),
+                      Expanded(
+                        child: _SkinCard(
+                          skin: skin,
+                          image: settings.backgroundOf(skin),
+                          selected: settings.skinId == skin.id,
+                          onTap: () => settings.skinId = skin.id,
+                        ),
+                      ),
+                    ],
+                    if (pair.length == 1) ...[
+                      const SizedBox(width: 10),
+                      const Expanded(child: SizedBox()),
+                    ],
+                  ],
+                ),
+              ),
             const _Help(
               'En Android, el icono y el nombre de la app cambian con la skin '
               'al salir de ella.',
@@ -664,6 +673,11 @@ class _PercentSlider extends StatelessWidget {
 
 /// Tarjeta de una skin con una miniatura del contador: fondo, los dos
 /// paneles y la barra.
+List<List<T>> _pairs<T>(List<T> items) => [
+  for (var i = 0; i < items.length; i += 2)
+    items.sublist(i, (i + 2).clamp(0, items.length)),
+];
+
 class _SkinCard extends StatelessWidget {
   const _SkinCard({
     required this.skin,
@@ -702,7 +716,7 @@ class _SkinCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  height: 100,
+                  height: 84,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.black,

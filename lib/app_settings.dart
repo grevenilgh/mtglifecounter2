@@ -111,6 +111,7 @@ class AppSettings extends ChangeNotifier {
   /// La skin en uso.
   Skin get skin => switch (_skinId) {
     'fulltapped' => Skin.fullTapped,
+    'oldschool' => Skin.oldSchool,
     'custom' => _customSkin,
     _ => Skin.alicante,
   };

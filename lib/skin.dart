@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 enum SkinBackground {
   alicante('assets/images/BackgroundBW.png', 'AlicanteMTG'),
   fullTapped('assets/images/tap.png', 'Full Tapped'),
+  oldSchool('assets/images/oldschool.png', 'Old School'),
   none(null, 'Sin imagen'),
 
   /// Una foto elegida por el usuario. Sus bytes los guarda [AppSettings].
@@ -55,6 +56,18 @@ class Skin {
     background: SkinBackground.fullTapped,
   );
 
+  /// La de Old School MTG Channel (oldschoolmtgchannel.com): el azul de la
+  /// cabecera de su web, el gris carbón de su logo y el casi negro de sus
+  /// textos para la barra. De fondo, su logo con la gorra y el micro.
+  static const oldSchool = Skin(
+    id: 'oldschool',
+    name: 'Old School',
+    top: Color(0xFF006AA9), // azul de la web
+    bottom: Color(0xFF484848), // gris carbón del logo
+    bar: Color(0xFF1F2020), // casi negro de los textos
+    background: SkinBackground.oldSchool,
+  );
+
   /// Punto de partida de la skin personalizada: los colores del contador de
   /// mtgtournament (azul y burdeos con la barra en gris cálido).
   static const customDefault = Skin(
@@ -66,7 +79,7 @@ class Skin {
     background: SkinBackground.none,
   );
 
-  static const presets = [alicante, fullTapped];
+  static const presets = [alicante, fullTapped, oldSchool];
 
   // Los paneles y la barra son semitransparentes para que se vea el fondo.
   Color get topPanel => top.withAlpha(225);

@@ -66,6 +66,7 @@ class MainActivity : FlutterActivity() {
         private val ALIASES = mapOf(
             "alicante" to "AliasAlicante",
             "fulltapped" to "AliasFullTapped",
+            "oldschool" to "AliasOldSchool",
             "mesa" to "AliasMesa",
         )
     }
