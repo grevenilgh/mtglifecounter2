@@ -148,10 +148,12 @@ class CenterBar extends StatelessWidget {
     );
   }
 
-  // La carta de la barra del borde antiguo: una tierra (Library of
-  // Alexandria), que es neutra y no se pelea con los colores de los
-  // jugadores. Antes era el oro multicolor de Legends.
+  // La carta de la barra del borde antiguo: una tierra doble de Unlimited.
+  // Su marco es el de las tierras (recortado de Bayou, doble.jpg) y su
+  // caja de texto se pinta con los colores de los jugadores. Si no se saben,
+  // va la caja de la tierra de los paneles ([CardFrame.bar]).
   static const CardFrame _barFrame = CardFrame.bar;
+  static const String _barStrip = 'assets/images/marcos/doble.jpg';
 
   // Grosor de su marco, en dp.
   static const double _frameWidth = 13;
@@ -164,7 +166,7 @@ class CenterBar extends StatelessWidget {
     bool flip = false,
   }) {
     Widget image = Image.asset(
-      _barFrame.asset,
+      _barStrip,
       fit: BoxFit.cover,
       opacity: opacity,
       filterQuality: FilterQuality.medium,
@@ -176,9 +178,9 @@ class CenterBar extends StatelessWidget {
   // Franja de arriba o de abajo: la tira tumbada, puesta las veces que haga
   // falta y una sí y otra no en espejo, para que no se note la unión.
   Widget _frameBand(Animation<double> opacity, {required int turns}) {
-    // La tira mide unos 35 × 806: tumbada y a [_frameWidth] de alto, cada
-    // copia ocupa esto de largo.
-    const length = 806 * _frameWidth / 35;
+    // La tira mide 30 × 806: tumbada y a [_frameWidth] de alto, cada copia
+    // ocupa esto de largo.
+    const length = 806 * _frameWidth / 30;
     return LayoutBuilder(
       builder: (context, constraints) {
         final copies = (constraints.maxWidth / length).ceil().clamp(1, 20);

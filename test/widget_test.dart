@@ -110,7 +110,7 @@ void main() {
           ..frameOpacity = 60
           ..barOpacity = 30
           ..historyOpacity = 0
-          ..zoneMarks = ZoneMarks.none
+          ..zoneMarks = ZoneMarks.strong
           ..animations = false;
 
         await settings.resetLook();
@@ -125,7 +125,7 @@ void main() {
           expect(s.frameOpacity, 92);
           expect(s.barOpacity, s.look.defaultBarOpacity);
           expect(s.historyOpacity, s.look.defaultHistoryOpacity);
-          expect(s.zoneMarks, ZoneMarks.both);
+          expect(s.zoneMarks, ZoneMarks.none);
           expect(s.animations, isTrue);
         }
       },
@@ -359,7 +359,8 @@ void main() {
   testWidgets('tocar arriba suma y abajo resta', (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
-    final settings = AppSettings(prefs);
+    // Con tono en las mitades, para comprobar que cubre el panel.
+    final settings = AppSettings(prefs)..zoneMarks = ZoneMarks.soft;
     final game = GameState();
     final storage = GameStorage(prefs, game);
     final timer = RoundTimer(prefs);

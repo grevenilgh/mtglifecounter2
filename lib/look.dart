@@ -71,7 +71,8 @@ enum ZoneMarks {
   /// Tono suave y línea.
   both('Tono y línea'),
 
-  /// Nada: el panel entero igual. Arriba sigue sumando y abajo restando.
+  /// Nada: el panel entero igual. Arriba sigue sumando y abajo restando. Es
+  /// lo de por defecto.
   none('Nada');
 
   const ZoneMarks(this.label);
@@ -81,7 +82,7 @@ enum ZoneMarks {
   bool get hasLine => this == line || this == both;
 
   static ZoneMarks fromName(String? name) =>
-      values.firstWhere((m) => m.name == name, orElse: () => both);
+      values.firstWhere((m) => m.name == name, orElse: () => none);
 }
 
 /// Cómo se pinta el color del jugador encima de la imagen.
@@ -131,27 +132,29 @@ enum CardFrame {
   String get textBoxAsset => 'assets/images/marcos/caja_$name.jpg';
 
   /// El tono pálido de ese color en la caja de texto de las tierras dobles de
-  /// Revised (anillos de los dos colores alternados). El oro y el artefacto
+  /// Unlimited (anillos de los dos colores alternados). El oro y el artefacto
   /// no salen en ninguna doble: van en dorado y en marrón claro.
   Color get dualTint => switch (this) {
-    azul => const Color(0xFF93AECB),
-    blanco => const Color(0xFFF4ECDF),
-    negro => const Color(0xFF6E6762),
-    rojo => const Color(0xFFDE7F86),
-    verde => const Color(0xFFDCCA70),
-    artefacto => const Color(0xFFC2A07E),
+    // Medidos en las dobles de Unlimited de Scryfall. El verde sale verde
+    // amarillento; aquí, un poco más verde.
+    azul => const Color(0xFFADB7BB),
+    blanco => const Color(0xFFE3CFA6),
+    negro => const Color(0xFF909290),
+    rojo => const Color(0xFFD98E7A),
+    verde => const Color(0xFFADBF6E),
+    artefacto => const Color(0xFFC7A684),
     tierra => const Color(0xFFB8AC98),
-    oro => const Color(0xFFC49A3C),
+    oro => const Color(0xFFD9BC5E),
   };
 
   /// El mismo color, fuerte y oscuro: el de la línea del reborde de la caja
   /// de texto de las dobles (una de cada color, la de fuera y la de dentro).
   Color get dualRim => switch (this) {
-    azul => const Color(0xFF2C5F94),
-    blanco => const Color(0xFFCDBF96),
-    negro => const Color(0xFF26231F),
-    rojo => const Color(0xFFB83A33),
-    verde => const Color(0xFF3F6F2E),
+    azul => const Color(0xFF2F7FB0),
+    blanco => const Color(0xFFD3D9D4),
+    negro => const Color(0xFF4E5560),
+    rojo => const Color(0xFFA63340),
+    verde => const Color(0xFF8FA24A),
     artefacto => const Color(0xFF7A5634),
     tierra => const Color(0xFF6E6252),
     oro => const Color(0xFF94701E),
