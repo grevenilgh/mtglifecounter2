@@ -235,6 +235,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
         final bar = CenterBar(
           look: look,
           color: barColorFor(settings),
+          players: settings.skin.cardFrames,
           alpha: settings.barOpacity / 100,
           leading: [
             BarAction(

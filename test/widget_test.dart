@@ -95,6 +95,42 @@ void main() {
       expect(settings.backgroundOf(reloaded.skin), isA<AssetImage>());
     });
 
+    test(
+      'volver al aspecto por defecto no toca tema, skin ni partida',
+      () async {
+        SharedPreferences.setMockInitialValues({});
+        final prefs = await SharedPreferences.getInstance();
+        final settings = AppSettings(prefs)
+          ..theme = AppTheme.classic
+          ..skinId = Skin.oldSchool.id
+          ..showHistory = false
+          ..backgroundMode = BackgroundMode.perPlayer
+          ..imageOpacity = 100
+          ..focus = false
+          ..frameOpacity = 60
+          ..barOpacity = 30
+          ..historyOpacity = 0
+          ..zoneMarks = ZoneMarks.none
+          ..animations = false;
+
+        await settings.resetLook();
+        final fresh = AppSettings(prefs);
+        for (final s in [settings, fresh]) {
+          expect(s.theme, AppTheme.classic);
+          expect(s.skinId, Skin.oldSchool.id);
+          expect(s.showHistory, isFalse);
+          expect(s.backgroundMode, BackgroundMode.screen);
+          expect(s.imageOpacity, 60);
+          expect(s.focus, s.look.focusByDefault);
+          expect(s.frameOpacity, 92);
+          expect(s.barOpacity, s.look.defaultBarOpacity);
+          expect(s.historyOpacity, s.look.defaultHistoryOpacity);
+          expect(s.zoneMarks, ZoneMarks.both);
+          expect(s.animations, isTrue);
+        }
+      },
+    );
+
     test('la barra y el historial tienen su propia opacidad', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
@@ -252,6 +288,65 @@ void main() {
       CardFrame.rankFor(const Color(0xFFB45309)).first,
       CardFrame.artefacto,
     );
+  });
+
+  test('la barra copia la caja de texto de cada tierra doble', () {
+    const f = CardFrame.values;
+    // (línea de fuera, del medio, primer cuadrado), medido en Revised.
+    final duals = {
+      'Tundra': (f[1], f[0], f[1], f[1]),
+      'Underground Sea': (f[0], f[2], f[0], f[2]),
+      'Badlands': (f[2], f[3], f[3], f[3]),
+      'Taiga': (f[3], f[4], f[3], f[3]),
+      'Savannah': (f[4], f[1], f[4], f[1]),
+      'Scrubland': (f[1], f[2], f[2], f[2]),
+      'Volcanic Island': (f[0], f[3], f[3], f[3]),
+      'Bayou': (f[2], f[4], f[4], f[2]),
+      'Plateau': (f[3], f[1], f[3], f[3]),
+      'Tropical Island': (f[4], f[0], f[4], f[0]),
+    };
+    expect(f.take(5), [
+      CardFrame.azul,
+      CardFrame.blanco,
+      CardFrame.negro,
+      CardFrame.rojo,
+      CardFrame.verde,
+    ]);
+    for (final MapEntry(key: name, value: (a, b, line, band))
+        in duals.entries) {
+      // Da igual quién esté arriba.
+      for (final d in [CardFrame.dual(a, b), CardFrame.dual(b, a)]) {
+        expect(d.line, line, reason: name);
+        expect({d.line, d.middle}, {a, b}, reason: name);
+        expect(d.band, band, reason: name);
+        expect({d.band, d.other}, {a, b}, reason: name);
+      }
+    }
+  });
+
+  test('ningún jugador lleva el marco de la barra', () {
+    // Todos los colores, de 12 en 12 grados y con poca y mucha luz y color,
+    // y también los dos jugadores con el mismo.
+    final colors = [
+      for (var h = 0.0; h < 360; h += 12)
+        for (final s in [0.1, 0.6, 1.0])
+          for (final v in [0.1, 0.5, 0.9])
+            HSVColor.fromAHSV(1, h, s, v).toColor(),
+    ];
+    for (final top in colors) {
+      for (final bottom in [
+        top,
+        colors[(colors.indexOf(top) * 7) % colors.length],
+      ]) {
+        final (a, b) = CardFrame.forPlayers(top, bottom);
+        expect([a, b], isNot(contains(CardFrame.bar)));
+        expect(a, isNot(b));
+      }
+    }
+    for (final skin in [...Skin.presets, Skin.customDefault]) {
+      final (a, b) = skin.cardFrames;
+      expect([a, b], isNot(contains(CardFrame.bar)), reason: skin.name);
+    }
   });
 
   test('cada skin lleva su icono', () {

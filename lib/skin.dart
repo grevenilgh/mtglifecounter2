@@ -23,7 +23,8 @@ enum SkinBackground {
   /// La versión para «una imagen para toda la pantalla», si la forma de
   /// [asset] no va con la de un móvil. El logo de Old School es casi
   /// cuadrado: al cubrir la pantalla perdía medio rótulo por los lados, así
-  /// que esta lo lleva con blanco arriba y abajo hasta la forma de un móvil.
+  /// que esta lo lleva más grande, encuadrado en el rótulo (el micro casi no
+  /// se ve) y con negro arriba y abajo hasta la forma de un móvil de 20:9.
   final String? screenAsset;
 
   static SkinBackground fromName(String? name) =>

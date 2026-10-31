@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/look.dart';
 
@@ -23,6 +21,7 @@ class CenterBar extends StatelessWidget {
     required this.trailing,
     this.stepper,
     this.timer,
+    this.players,
   });
 
   final Look look;
@@ -41,6 +40,10 @@ class CenterBar extends StatelessWidget {
 
   /// El reloj de ronda, si está activado en Ajustes.
   final Widget? timer;
+
+  /// Los marcos de los dos jugadores (arriba, abajo). En el borde antiguo la
+  /// barra es una tierra doble de esos dos colores.
+  final (CardFrame, CardFrame)? players;
 
   @override
   Widget build(BuildContext context) {
@@ -145,18 +148,23 @@ class CenterBar extends StatelessWidget {
     );
   }
 
-  // Grosor del marco dorado de la barra del borde antiguo, en dp.
-  static const double _goldFrame = 13;
+  // La carta de la barra del borde antiguo: una tierra (Library of
+  // Alexandria), que es neutra y no se pelea con los colores de los
+  // jugadores. Antes era el oro multicolor de Legends.
+  static const CardFrame _barFrame = CardFrame.bar;
 
-  // Una tira del marco dorado: el borde derecho de Sol'kanar, con su filo
-  // exterior (la línea clara) a la derecha. [turns] la gira de 90 en 90.
-  Widget _goldStrip(
+  // Grosor de su marco, en dp.
+  static const double _frameWidth = 13;
+
+  // Una tira del marco: el borde derecho de la carta, con su filo exterior
+  // (la línea clara) a la derecha. [turns] la gira de 90 en 90.
+  Widget _frameStrip(
     Animation<double> opacity, {
     int turns = 0,
     bool flip = false,
   }) {
     Widget image = Image.asset(
-      CardFrame.oro.asset,
+      _barFrame.asset,
       fit: BoxFit.cover,
       opacity: opacity,
       filterQuality: FilterQuality.medium,
@@ -167,10 +175,10 @@ class CenterBar extends StatelessWidget {
 
   // Franja de arriba o de abajo: la tira tumbada, puesta las veces que haga
   // falta y una sí y otra no en espejo, para que no se note la unión.
-  Widget _goldBand(Animation<double> opacity, {required int turns}) {
-    // La tira mide 36 × 806: tumbada y a [_goldFrame] de alto, cada copia
-    // ocupa esto de largo.
-    const length = 806 * _goldFrame / 36;
+  Widget _frameBand(Animation<double> opacity, {required int turns}) {
+    // La tira mide unos 35 × 806: tumbada y a [_frameWidth] de alto, cada
+    // copia ocupa esto de largo.
+    const length = 806 * _frameWidth / 35;
     return LayoutBuilder(
       builder: (context, constraints) {
         final copies = (constraints.maxWidth / length).ceil().clamp(1, 20);
@@ -182,9 +190,9 @@ class CenterBar extends StatelessWidget {
                 child: i.isOdd
                     ? Transform.flip(
                         flipX: true,
-                        child: _goldStrip(opacity, turns: turns),
+                        child: _frameStrip(opacity, turns: turns),
                       )
-                    : _goldStrip(opacity, turns: turns),
+                    : _frameStrip(opacity, turns: turns),
               ),
           ],
         );
@@ -192,10 +200,9 @@ class CenterBar extends StatelessWidget {
     );
   }
 
-  // Borde antiguo: una carta multicolor de Legends tumbada, de lado a lado
-  // como los paneles. Borde negro, el marco dorado de verdad (el mismo que
-  // llevan los paneles con marco de oro) y, dentro, su caja de texto hundida
-  // con los botones de pergamino.
+  // Borde antiguo: una carta tumbada ([_barFrame]), de lado a lado como los
+  // paneles. Borde negro, su marco (el mismo que llevan los paneles con ese
+  // marco) y, dentro, su caja de texto hundida con los botones de maná.
   Widget _leather() {
     final opacity = AlwaysStoppedAnimation(alpha);
     const bevel = BoxDecoration(
@@ -231,45 +238,51 @@ class CenterBar extends StatelessWidget {
               left: 0,
               top: 0,
               bottom: 0,
-              width: _goldFrame,
-              child: _goldStrip(opacity, flip: true),
+              width: _frameWidth,
+              child: _frameStrip(opacity, flip: true),
             ),
             Positioned(
               right: 0,
               top: 0,
               bottom: 0,
-              width: _goldFrame,
-              child: _goldStrip(opacity),
+              width: _frameWidth,
+              child: _frameStrip(opacity),
             ),
             Positioned(
               left: 0,
               right: 0,
               top: 0,
-              height: _goldFrame,
-              child: _goldBand(opacity, turns: 3),
+              height: _frameWidth,
+              child: _frameBand(opacity, turns: 3),
             ),
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              height: _goldFrame,
-              child: _goldBand(opacity, turns: 1),
+              height: _frameWidth,
+              child: _frameBand(opacity, turns: 1),
             ),
-            // La caja de texto, que en los paneles va de pie: aquí tumbada.
+            // La caja de texto: la de una tierra doble de Revised con los
+            // colores de los dos jugadores, o la de la tierra si no se saben.
             Padding(
-              padding: const EdgeInsets.all(_goldFrame),
+              padding: const EdgeInsets.all(_frameWidth),
               child: DecoratedBox(
                 position: DecorationPosition.foreground,
                 decoration: bevel,
-                child: RotatedBox(
-                  quarterTurns: 1,
-                  child: Image.asset(
-                    CardFrame.oro.textBoxAsset,
-                    fit: BoxFit.cover,
-                    opacity: opacity,
-                    filterQuality: FilterQuality.medium,
+                child: switch (players) {
+                  (final top, final bottom) => CustomPaint(
+                    painter: _DualTextBox(CardFrame.dual(top, bottom), alpha),
                   ),
-                ),
+                  null => RotatedBox(
+                    quarterTurns: 1,
+                    child: Image.asset(
+                      _barFrame.textBoxAsset,
+                      fit: BoxFit.cover,
+                      opacity: opacity,
+                      filterQuality: FilterQuality.medium,
+                    ),
+                  ),
+                },
               ),
             ),
             FittedBox(
@@ -323,82 +336,70 @@ class CenterBar extends StatelessWidget {
   }
 }
 
-/// Qué dibuja un símbolo de maná de la barra del borde antiguo.
-enum _Glyph { tap, icon }
-
 /// Los botones de la barra del borde antiguo, como los símbolos de coste de
-/// las cartas ([kManaPip]). Girar el panel es el símbolo de girar ({T});
-/// reiniciar lleva el icono de volver a empezar (con el de enderezar, la
-/// misma flecha en espejo, no se distinguían) y el resto, su icono.
+/// las cartas ([kManaPip]), con su icono en negro. Reiniciar lleva el de
+/// volver a empezar.
 class _ManaSymbol extends StatelessWidget {
-  const _ManaSymbol._(this.glyph, {this.icon});
+  const _ManaSymbol(this.icon);
 
-  factory _ManaSymbol.forAction(IconData icon) => switch (icon) {
-    Icons.swap_vert => const _ManaSymbol._(_Glyph.tap),
-    Icons.refresh => const _ManaSymbol._(_Glyph.icon, icon: Icons.restart_alt),
-    _ => _ManaSymbol._(_Glyph.icon, icon: icon),
-  };
+  factory _ManaSymbol.forAction(IconData icon) =>
+      _ManaSymbol(icon == Icons.refresh ? Icons.restart_alt : icon);
 
-  final _Glyph glyph;
-  final IconData? icon;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 38,
       height: 38,
-      alignment: Alignment.center,
       decoration: kManaPip,
-      child: switch (glyph) {
-        _Glyph.icon => Icon(icon, color: kManaInk, size: 21),
-        _Glyph.tap => CustomPaint(
-          size: const Size.square(38),
-          painter: _TapPainter(color: kManaInk),
-        ),
-      },
+      child: Icon(icon, color: kManaInk, size: 21),
     );
   }
 }
 
-/// La flecha curva del símbolo de girar ({T}): sale de abajo a la izquierda,
-/// pasa por arriba y baja por la derecha con la punta hacia abajo.
-class _TapPainter extends CustomPainter {
-  _TapPainter({required this.color});
+/// La caja de texto de las tierras dobles de Alpha a Revised ([CardFrame.dual]):
+/// un reborde de un filo oscuro y tres líneas finas (la de fuera, la del
+/// medio y otra vez la de fuera) y, dentro, cuadrados uno dentro de otro, del
+/// mismo grosor y de los dos colores uno sí y otro no, hasta que no cabe
+/// ninguno más. Los botones van encima.
+class _DualTextBox extends CustomPainter {
+  _DualTextBox(this.dual, this.alpha);
 
-  final Color color;
+  final ({CardFrame line, CardFrame middle, CardFrame band, CardFrame other})
+  dual;
+  final double alpha;
+
+  // El grosor de cada cuadrado, de cada línea del reborde y de su filo.
+  static const double _band = 5;
+  static const double _line = 1.3;
+  static const double _edge = 0.8;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final s = size.shortestSide / 24;
-    canvas
-      ..save()
-      ..scale(s);
-    final stroke = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round;
-    const center = Offset(12, 13);
-    const r = 6.2;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: r),
-      pi * 0.9,
-      pi * 1.1,
-      false,
-      stroke,
-    );
-    final end = center + const Offset(r, 0);
-    canvas.drawPath(
-      Path()
-        ..moveTo(end.dx - 3.6, end.dy - 0.6)
-        ..lineTo(end.dx + 3.6, end.dy - 0.6)
-        ..lineTo(end.dx, end.dy + 4.4)
-        ..close(),
-      Paint()..color = color,
-    );
-    canvas.restore();
+    // Va casi opaca aunque la barra se transparente: si no, se perdía.
+    final strength = 0.4 + 0.6 * alpha;
+    final paint = Paint();
+    var rect = Offset.zero & size;
+    void layer(Color color, double width) {
+      canvas.drawRect(rect, paint..color = color.withValues(alpha: strength));
+      rect = rect.deflate(width);
+    }
+
+    final edge = shade(dual.line.dualRim, 0.45);
+    layer(edge, _edge);
+    layer(dual.line.dualRim, _line);
+    layer(dual.middle.dualRim, _line);
+    layer(dual.line.dualRim, _line);
+    layer(edge, _edge);
+    // El último cuadrado es el que ya no deja sitio a otro entero: una tira
+    // más fina que dos bandas no se pinta, se queda el de fuera.
+    for (var i = 0; rect.shortestSide >= 2 * _band || i == 0; i++) {
+      layer((i.isEven ? dual.band : dual.other).dualTint, _band);
+    }
   }
 
   @override
-  bool shouldRepaint(_TapPainter old) => old.color != color;
+  bool shouldRepaint(_DualTextBox old) =>
+      old.dual != dual || old.alpha != alpha;
 }

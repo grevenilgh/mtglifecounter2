@@ -130,6 +130,33 @@ enum CardFrame {
   /// historial.
   String get textBoxAsset => 'assets/images/marcos/caja_$name.jpg';
 
+  /// El tono pálido de ese color en la caja de texto de las tierras dobles de
+  /// Revised (anillos de los dos colores alternados). El oro y el artefacto
+  /// no salen en ninguna doble: van en dorado y en marrón claro.
+  Color get dualTint => switch (this) {
+    azul => const Color(0xFF93AECB),
+    blanco => const Color(0xFFF4ECDF),
+    negro => const Color(0xFF6E6762),
+    rojo => const Color(0xFFDE7F86),
+    verde => const Color(0xFFDCCA70),
+    artefacto => const Color(0xFFC2A07E),
+    tierra => const Color(0xFFB8AC98),
+    oro => const Color(0xFFC49A3C),
+  };
+
+  /// El mismo color, fuerte y oscuro: el de la línea del reborde de la caja
+  /// de texto de las dobles (una de cada color, la de fuera y la de dentro).
+  Color get dualRim => switch (this) {
+    azul => const Color(0xFF2C5F94),
+    blanco => const Color(0xFFCDBF96),
+    negro => const Color(0xFF26231F),
+    rojo => const Color(0xFFB83A33),
+    verde => const Color(0xFF3F6F2E),
+    artefacto => const Color(0xFF7A5634),
+    tierra => const Color(0xFF6E6252),
+    oro => const Color(0xFF94701E),
+  };
+
   /// Los marcos que mejor van con [color], del mejor al peor.
   static List<CardFrame> rankFor(Color color) {
     final hsv = HSVColor.fromColor(color);
@@ -151,11 +178,49 @@ enum CardFrame {
     return const [negro, azul, tierra];
   }
 
-  /// Un marco para cada jugador, nunca el mismo: si coinciden, el de abajo
-  /// se queda con su siguiente opción.
+  /// Cómo es la caja de texto de la tierra doble de [top] y [bottom], medido
+  /// en las diez de Revised: el reborde son tres líneas finas (de fuera,
+  /// del medio y otra vez la de fuera) y los cuadrados empiezan por [band].
+  /// Ninguna regla saca las diez (el rojo siempre va fuera, pero el resto
+  /// cambia de carta a carta), así que van en una tabla. Las parejas que no
+  /// existen (con oro, artefacto o el mismo color) llevan fuera el de arriba.
+  static ({CardFrame line, CardFrame middle, CardFrame band, CardFrame other})
+  dual(CardFrame top, CardFrame bottom) {
+    ({CardFrame line, CardFrame middle, CardFrame band, CardFrame other}) of(
+      CardFrame line,
+      CardFrame middle,
+      CardFrame band,
+    ) => (
+      line: line,
+      middle: middle,
+      band: band,
+      other: band == line ? middle : line,
+    );
+    final pair = {top, bottom};
+    bool pairOf(CardFrame a, CardFrame b) =>
+        pair.length == 2 && pair.contains(a) && pair.contains(b);
+    if (pairOf(blanco, azul)) return of(blanco, azul, blanco); // Tundra
+    if (pairOf(azul, negro)) return of(azul, negro, negro); // Underground Sea
+    if (pairOf(negro, rojo)) return of(rojo, negro, rojo); // Badlands
+    if (pairOf(rojo, verde)) return of(rojo, verde, rojo); // Taiga
+    if (pairOf(verde, blanco)) return of(verde, blanco, blanco); // Savannah
+    if (pairOf(blanco, negro)) return of(negro, blanco, negro); // Scrubland
+    if (pairOf(azul, rojo)) return of(rojo, azul, rojo); // Volcanic Island
+    if (pairOf(negro, verde)) return of(verde, negro, negro); // Bayou
+    if (pairOf(rojo, blanco)) return of(rojo, blanco, rojo); // Plateau
+    if (pairOf(verde, azul)) return of(verde, azul, azul); // Tropical Island
+    return of(top, bottom, top);
+  }
+
+  /// El marco de la barra central. Ningún jugador lo lleva, elija el color
+  /// que elija, para que la barra no se confunda con un panel.
+  static const CardFrame bar = tierra;
+
+  /// Un marco para cada jugador, nunca el mismo ni el de la barra: si
+  /// coinciden, el de abajo se queda con su siguiente opción.
   static (CardFrame, CardFrame) forPlayers(Color top, Color bottom) {
-    final first = rankFor(top).first;
-    final second = rankFor(bottom).firstWhere((f) => f != first);
+    final first = rankFor(top).firstWhere((f) => f != bar);
+    final second = rankFor(bottom).firstWhere((f) => f != first && f != bar);
     return (first, second);
   }
 }
@@ -242,14 +307,16 @@ class Look {
   int get defaultBarOpacity => switch (theme) {
     AppTheme.original => 97,
     AppTheme.modern => isCards ? 92 : 94,
-    AppTheme.classic => 92,
+    // La carta dorada deja ver el fondo por detrás.
+    AppTheme.classic => 65,
   };
 
   /// Opacidad del fondo del historial si no se cambia en Ajustes.
   int get defaultHistoryOpacity => switch (theme) {
     AppTheme.original => 50,
     AppTheme.modern => 30,
-    AppTheme.classic => 80,
+    // La caja de texto, igual: con 80 tapaba el fondo del todo.
+    AppTheme.classic => 60,
   };
 
   /// Color claro del texto del número.

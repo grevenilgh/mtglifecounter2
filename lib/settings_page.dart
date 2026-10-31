@@ -382,8 +382,49 @@ class SettingsPage extends StatelessWidget {
             ),
           ],
         ),
+        Center(
+          child: TextButton.icon(
+            onPressed: () => _confirmResetLook(context),
+            icon: const Icon(Icons.restart_alt),
+            label: const Text('Volver al aspecto por defecto'),
+            style: TextButton.styleFrom(foregroundColor: kAccent),
+          ),
+        ),
       ],
     );
+  }
+
+  Future<void> _confirmResetLook(BuildContext context) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: kCardColor,
+        title: const Text(
+          'Volver al aspecto por defecto',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          'La imagen de fondo, el foco, las mitades, las transparencias y las '
+          'animaciones vuelven a lo que trae cada tema. El tema, la skin y '
+          'la partida se quedan como están.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'Cancelar',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Restablecer', style: TextStyle(color: kAccent)),
+          ),
+        ],
+      ),
+    );
+    if (accepted == true) await settings.resetLook();
   }
 
   Widget _game() {
@@ -993,6 +1034,7 @@ class _PreviewState extends State<_Preview> {
     final bar = CenterBar(
       look: look,
       color: barColorFor(settings),
+      players: settings.skin.cardFrames,
       alpha: settings.barOpacity / 100,
       leading: [
         BarAction(Icons.refresh, 'Reiniciar partida', none),

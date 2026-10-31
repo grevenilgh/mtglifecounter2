@@ -35,6 +35,29 @@ class AppSettings extends ChangeNotifier {
     _keepScreenOn = _prefs.getBool(_kKeepScreenOn) ?? true;
     _theme = AppTheme.fromName(_prefs.getString(_kTheme));
     _modernVariant = ModernVariant.fromName(_prefs.getString(_kModernVariant));
+    _loadLook();
+    _showTimer = _prefs.getBool(_kShowTimer) ?? true;
+    _timerMode = TimerMode.fromName(_prefs.getString(_kTimerMode));
+    _roundMinutes = _prefs.getInt(_kRoundMinutes) ?? 50;
+    _timerWarning = _prefs.getBool(_kTimerWarning) ?? true;
+    _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
+    _showStepper = _prefs.getBool(_kShowStepper) ?? false;
+    _showHistory = _prefs.getBool(_kShowHistory) ?? true;
+  }
+
+  // Lo que vuelve a lo de por defecto con [resetLook].
+  static const _lookKeys = [
+    _kBackgroundMode,
+    _kImageOpacity,
+    _kFocus,
+    _kFrameOpacity,
+    _kBarOpacity,
+    _kHistoryOpacity,
+    _kZoneMarks,
+    _kAnimations,
+  ];
+
+  void _loadLook() {
     _backgroundMode = BackgroundMode.fromName(
       _prefs.getString(_kBackgroundMode),
     );
@@ -44,14 +67,17 @@ class AppSettings extends ChangeNotifier {
     _barOpacity = _prefs.getInt(_kBarOpacity);
     _historyOpacity = _prefs.getInt(_kHistoryOpacity);
     _zoneMarks = ZoneMarks.fromName(_prefs.getString(_kZoneMarks));
-    _showTimer = _prefs.getBool(_kShowTimer) ?? true;
-    _timerMode = TimerMode.fromName(_prefs.getString(_kTimerMode));
-    _roundMinutes = _prefs.getInt(_kRoundMinutes) ?? 50;
-    _timerWarning = _prefs.getBool(_kTimerWarning) ?? true;
-    _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
     _animations = _prefs.getBool(_kAnimations) ?? true;
-    _showStepper = _prefs.getBool(_kShowStepper) ?? false;
-    _showHistory = _prefs.getBool(_kShowHistory) ?? true;
+  }
+
+  /// Vuelve el aspecto a lo de por defecto de cada tema: la imagen de fondo
+  /// (para toda la pantalla y su opacidad), el foco, las mitades, las
+  /// transparencias de la barra, el historial y el marco, y las animaciones.
+  /// No toca el tema, la skin, sus colores ni su foto, ni nada de la partida.
+  Future<void> resetLook() async {
+    await Future.wait([for (final key in _lookKeys) _prefs.remove(key)]);
+    _loadLook();
+    notifyListeners();
   }
 
   static const _kSkin = 'skin';

@@ -42,7 +42,7 @@ Skin para [Old School MTG Channel](https://www.oldschoolmtgchannel.com/), nacida
 | | **Old School** (`Skin.oldSchool`, id `oldschool`) |
 |---|---|
 | Nombre en el lanzador (Android) | `Old School MTG` (`AliasOldSchool`) |
-| Imagen de fondo | `assets/images/oldschool.jpg`: su logo con la gorra y el micro sobre negro y sin el borde blanco de pegatina, a 1000 px. Con una imagen para toda la pantalla, `oldschool_pantalla.jpg`: el mismo con negro arriba y abajo |
+| Imagen de fondo | `assets/images/oldschool.jpg`: su logo con la gorra y el micro sobre negro y sin el borde blanco de pegatina, a 1000 px. Con una imagen para toda la pantalla, `oldschool_pantalla.jpg`: el mismo, un 42 % más grande y encuadrado en el rótulo, con negro arriba y abajo. Las dos, aclaradas un 35 % |
 | Marcos del Old Border | azul arriba y blanco abajo (`Skin.frames`); por el gris saldría artefacto |
 | Color jugador de arriba | `Color(0xFF006AA9)`: el azul de la cabecera de la web |
 | Color jugador de abajo | `Color(0xFF484848)`: el gris carbón del logo |
