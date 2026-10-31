@@ -111,6 +111,19 @@ final List<Scenario> scenarios = [
     app.now = app.now.add(const Duration(hours: 123, minutes: 45, seconds: 6));
     app.timer.pause();
   }),
+  // Lo contrario de lo de por defecto: sin historial (el número se centra en
+  // todo el panel), sin separador, sin reloj y con la cantidad por toque.
+  Scenario('sin historial', (app) {
+    app.settings
+      ..showHistory = false
+      ..zoneMarks = ZoneMarks.none
+      ..showTimer = false
+      ..showStepper = true;
+    app.game.top
+      ..change(-1019)
+      ..commit();
+    app.game.bottom.change(1998);
+  }),
   // El tamaño de letra del sistema al máximo (accesibilidad).
   Scenario('texto 200%', textScale: 2, (app) {
     app.settings.showStepper = true;
@@ -348,13 +361,18 @@ CounterReport checkCounter(WidgetTester tester) {
     }
     if (_overlaps(plus, minus)) report.issues.add('$name: + y − se pisan');
 
-    final history = tester.getRect(
-      find.descendant(of: panelFinder, matching: _private('_History')),
+    // Con el historial oculto no hay nada que comprobar de él.
+    final historyFinder = find.descendant(
+      of: panelFinder,
+      matching: _private('_History'),
     );
-    if (_overlaps(glyphs, history)) {
+    final history = historyFinder.evaluate().isEmpty
+        ? null
+        : tester.getRect(historyFinder);
+    if (history != null && _overlaps(glyphs, history)) {
       report.issues.add('$name: el número pisa el historial');
     }
-    if (_overlaps(history, bar)) {
+    if (history != null && _overlaps(history, bar)) {
       report.issues.add('$name: la barra tapa el historial');
     }
 
@@ -368,7 +386,7 @@ CounterReport checkCounter(WidgetTester tester) {
       if (_overlaps(rect, bar)) {
         report.issues.add('$name: la barra tapa la burbuja');
       }
-      if (_overlaps(rect, history)) {
+      if (history != null && _overlaps(rect, history)) {
         report.issues.add('$name: la burbuja pisa el historial');
       }
     }

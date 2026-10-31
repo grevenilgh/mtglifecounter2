@@ -178,7 +178,8 @@ class Look {
       variant: variant,
       numberFont: null,
       numberScale: 1,
-      veil: 0.82,
+      // Antes 0.82: el fondo apenas se veía. La sombra del número lo despega.
+      veil: 0.66,
       tintMode: TintMode.veil,
       focusByDefault: false,
     ),
@@ -191,7 +192,9 @@ class Look {
       numberScale: variant == ModernVariant.glass ? 1.15 : 1,
       veil: 0.2,
       tintMode: variant == ModernVariant.cards ? TintMode.edge : TintMode.veil,
-      focusByDefault: variant == ModernVariant.cards,
+      // En cristal el fondo va casi limpio: sin foco, las partes claras de
+      // la imagen se comían el número.
+      focusByDefault: true,
     ),
     AppTheme.classic => Look._(
       theme: theme,
@@ -286,74 +289,6 @@ TextStyle withFont(String? font, TextStyle style) {
 Color shade(Color c, double f) {
   int ch(double v) => (v * 255 * f).round().clamp(0, 255);
   return Color.fromARGB(255, ch(c.r), ch(c.g), ch(c.b));
-}
-
-/// El marco jaspeado de las cartas antiguas: el color con manchas de luz y
-/// sombra. Son varias capas porque una caja solo admite un degradado.
-List<Decoration> mottled(Color color, double alpha) => [
-  BoxDecoration(
-    gradient: LinearGradient(
-      begin: const Alignment(-0.6, -1),
-      end: const Alignment(0.6, 1),
-      colors: [
-        shade(color, 1.12).withValues(alpha: alpha),
-        shade(color, 0.68).withValues(alpha: alpha),
-      ],
-    ),
-  ),
-  const BoxDecoration(
-    gradient: RadialGradient(
-      center: Alignment(-0.64, -0.56),
-      radius: 0.8,
-      colors: [Color(0x38FFFFFF), Color(0x00FFFFFF)],
-    ),
-  ),
-  const BoxDecoration(
-    gradient: RadialGradient(
-      center: Alignment(0.64, 0.4),
-      radius: 0.9,
-      colors: [Color(0x61000000), Color(0x00000000)],
-    ),
-  ),
-  const BoxDecoration(
-    gradient: RadialGradient(
-      center: Alignment(0.16, -0.84),
-      radius: 0.6,
-      colors: [Color(0x38000000), Color(0x00000000)],
-    ),
-  ),
-  const BoxDecoration(
-    gradient: RadialGradient(
-      center: Alignment(-0.44, 0.84),
-      radius: 0.7,
-      colors: [Color(0x24FFFFFF), Color(0x00FFFFFF)],
-    ),
-  ),
-];
-
-/// Pinta [mottled] detrás de [child].
-class Mottled extends StatelessWidget {
-  const Mottled({
-    super.key,
-    required this.color,
-    this.alpha = 1,
-    this.borderRadius = BorderRadius.zero,
-    required this.child,
-  });
-
-  final Color color;
-  final double alpha;
-  final BorderRadius borderRadius;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    Widget result = child;
-    for (final layer in mottled(color, alpha).reversed) {
-      result = DecoratedBox(decoration: layer, child: result);
-    }
-    return ClipRRect(borderRadius: borderRadius, child: result);
-  }
 }
 
 /// Pergamino de las cajas de texto y los botones del borde antiguo.

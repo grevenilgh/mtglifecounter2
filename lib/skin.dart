@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mtglifecounter/look.dart';
 
 /// Imagen de fondo que puede llevar una skin.
 enum SkinBackground {
@@ -39,6 +40,7 @@ class Skin {
     required this.bottom,
     required this.bar,
     required this.background,
+    this.frames,
   });
 
   final String id;
@@ -47,6 +49,14 @@ class Skin {
   final Color bottom;
   final Color bar;
   final SkinBackground background;
+
+  /// Los marcos de carta del borde antiguo (arriba, abajo), si la skin los
+  /// elige. Si no, salen de los colores ([CardFrame.forPlayers]).
+  final (CardFrame, CardFrame)? frames;
+
+  /// Los marcos que lleva cada jugador en el borde antiguo.
+  (CardFrame, CardFrame) get cardFrames =>
+      frames ?? CardFrame.forPlayers(top, bottom);
 
   static const alicante = Skin(
     id: 'alicante',
@@ -76,6 +86,8 @@ class Skin {
     bottom: Color(0xFF484848), // gris carbón del logo
     bar: Color(0xFF1F2020), // casi negro de los textos
     background: SkinBackground.oldSchool,
+    // Por su gris saldría artefacto: mejor azul y blanco, los de su logo.
+    frames: (CardFrame.azul, CardFrame.blanco),
   );
 
   /// Punto de partida de la skin personalizada: los colores del contador de

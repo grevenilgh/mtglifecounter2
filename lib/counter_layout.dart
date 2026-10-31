@@ -5,16 +5,10 @@ import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/player_counter.dart';
-import 'package:mtglifecounter/skin.dart';
 
-/// Color de la barra central: en el borde antiguo es de cuero, salvo en la
-/// skin personalizada.
-Color barColorFor(AppSettings settings) {
-  final skin = settings.skin;
-  return settings.look.isClassic && skin.id != Skin.customDefault.id
-      ? const Color(0xFF4A3420)
-      : skin.bar;
-}
+/// Color de la barra central. El borde antiguo no lo usa: su barra es una
+/// carta dorada en todas las skins.
+Color barColorFor(AppSettings settings) => settings.skin.bar;
 
 /// La pantalla del contador: el fondo, los dos paneles y la barra. La usan la
 /// pantalla principal y la miniatura de Ajustes.
@@ -63,8 +57,8 @@ class _CounterLayoutState extends State<CounterLayout> {
       screenKey: _screenKey,
     );
     // En el borde antiguo cada jugador lleva el marco de carta que mejor va
-    // con su color, y nunca el mismo que el otro.
-    final frames = CardFrame.forPlayers(skin.top, skin.bottom);
+    // con su color, y nunca el mismo que el otro (o el que elija la skin).
+    final frames = skin.cardFrames;
     Widget panel(PlayerState player, Color color, CardFrame frame) =>
         PlayerCounter(
           player: player,

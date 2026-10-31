@@ -746,15 +746,22 @@ class _HitNumber extends StatelessWidget {
   final bool Function() gained;
 
   List<Shadow> _baseShadows() => switch (look.theme) {
+    // Una sombra ancha y oscura despega el número del fondo, que en algunas
+    // skins tiene partes claras justo detrás (el símbolo de Full Tapped, las
+    // letras del logo de Old School).
     AppTheme.original => const [
       Shadow(color: Color(0x59000000), offset: Offset(0, 2), blurRadius: 4),
+      Shadow(color: Color(0x73000000), blurRadius: 18),
     ],
     AppTheme.modern => [
       const Shadow(color: Color(0xD9000000), blurRadius: 2),
       const Shadow(color: Color(0x59000000), offset: Offset(0, 2)),
-      if (look.isCards)
-        Shadow(color: shade(color, 1.3).withValues(alpha: 0.9), blurRadius: 28)
-      else
+      if (look.isCards) ...[
+        // El brillo es del color del jugador, claro: sin sombra debajo
+        // restaba contraste sobre un fondo claro.
+        const Shadow(color: Color(0x99000000), blurRadius: 10),
+        Shadow(color: shade(color, 1.3).withValues(alpha: 0.9), blurRadius: 28),
+      ] else
         const Shadow(color: Color(0x99000000), blurRadius: 28),
     ],
     AppTheme.classic => const [

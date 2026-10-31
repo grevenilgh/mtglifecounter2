@@ -218,6 +218,14 @@ void main() {
     });
   });
 
+  test('Old School lleva los marcos azul y blanco', () {
+    expect(Skin.oldSchool.cardFrames, (CardFrame.azul, CardFrame.blanco));
+    expect(
+      Skin.alicante.cardFrames,
+      CardFrame.forPlayers(Skin.alicante.top, Skin.alicante.bottom),
+    );
+  });
+
   test('cada jugador lleva un marco de carta distinto', () {
     // Lo que se decidió con el usuario para las skins publicadas.
     expect(CardFrame.forPlayers(Skin.alicante.top, Skin.alicante.bottom), (

@@ -25,8 +25,7 @@ class CenterBar extends StatelessWidget {
 
   final Look look;
 
-  /// Color de la barra de la skin (en el borde antiguo, el cuero, salvo en la
-  /// personalizada).
+  /// Color de la barra de la skin (el borde antiguo no lo usa).
   final Color color;
 
   /// Opacidad de la barra, de 0 a 1.
@@ -144,79 +143,113 @@ class CenterBar extends StatelessWidget {
     );
   }
 
-  // Borde antiguo: tira de cuero jaspeado con botones de pergamino.
+  // Borde antiguo: una carta multicolor de Legends tumbada, de lado a lado
+  // como los paneles. Borde negro, el marco dorado y, dentro, su caja de
+  // texto con los botones de pergamino.
   Widget _leather() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 18),
-      child: Container(
-        height: 58,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(
-              color: const Color(0xFF0B0705).withValues(alpha: alpha),
-              spreadRadius: 3,
+    final opacity = AlwaysStoppedAnimation(alpha);
+    const bevel = BoxDecoration(
+      border: Border(
+        top: BorderSide(color: Color(0xA6000000), width: 1.5),
+        left: BorderSide(color: Color(0xA6000000), width: 1.5),
+        right: BorderSide(color: Color(0x73FFF0D2), width: 1.5),
+        bottom: BorderSide(color: Color(0x73FFF0D2), width: 1.5),
+      ),
+    );
+    return Container(
+      height: 60,
+      padding: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: alpha),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.75 * alpha),
+            offset: const Offset(0, 8),
+            blurRadius: 18,
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(5),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            // El marco: la tira horizontal del oro, repetida a lo ancho.
+            Image.asset(
+              CardFrame.oro.horizontalAsset!,
+              fit: BoxFit.fitHeight,
+              repeat: ImageRepeat.repeatX,
+              opacity: opacity,
+              filterQuality: FilterQuality.medium,
             ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.75 * alpha),
-              offset: const Offset(0, 10),
-              blurRadius: 24,
+            // La caja de texto, que en los paneles va de pie: aquí tumbada.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+              child: DecoratedBox(
+                position: DecorationPosition.foreground,
+                decoration: bevel,
+                child: RotatedBox(
+                  quarterTurns: 1,
+                  child: Image.asset(
+                    CardFrame.oro.textBoxAsset,
+                    fit: BoxFit.cover,
+                    opacity: opacity,
+                    filterQuality: FilterQuality.medium,
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
-        child: Mottled(
-          color: color,
-          alpha: alpha,
-          borderRadius: BorderRadius.circular(10),
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              child: Row(
-                children: _items(
-                  (a) => Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    child: Tooltip(
-                      message: a.tooltip,
-                      child: Material(
-                        type: MaterialType.transparency,
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: a.onPressed,
-                          child: Container(
-                            width: 38,
-                            height: 38,
-                            decoration: kParchmentPip,
-                            child: Icon(a.icon, color: kInk, size: 20),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Row(
+                  children: _items(
+                    (a) => Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Tooltip(
+                        message: a.tooltip,
+                        child: Material(
+                          type: MaterialType.transparency,
+                          child: InkWell(
+                            customBorder: const CircleBorder(),
+                            onTap: a.onPressed,
+                            child: Container(
+                              width: 38,
+                              height: 38,
+                              decoration: kParchmentPip,
+                              child: Icon(a.icon, color: kInk, size: 20),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  stepper == null
-                      ? null
-                      : Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(19),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [Color(0xFFF2E8CF), Color(0xFFDFCDA3)],
-                            ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0xFF0B0705),
-                                offset: Offset(0, 2),
+                    stepper == null
+                        ? null
+                        : Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(19),
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFFF2E8CF), Color(0xFFDFCDA3)],
                               ),
-                            ],
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0xFF0B0705),
+                                  offset: Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: stepper!(kInk, true),
                           ),
-                          child: stepper!(kInk, true),
-                        ),
+                  ),
                 ),
               ),
             ),
-          ),
+          ],
         ),
       ),
     );
