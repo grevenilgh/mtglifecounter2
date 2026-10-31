@@ -62,8 +62,10 @@ class _TimerButtonState extends State<TimerButton>
           background = const Color(0xFFF59E0B);
           foreground = const Color(0xFF1F1403);
         } else if (classic) {
-          background = paused ? Colors.transparent : const Color(0xFFEFE3C5);
-          foreground = paused ? const Color(0xFFF6EDD5) : kInk;
+          // Como un coste de maná genérico, sobre la caja de texto clara de
+          // la barra: en pausa, solo el contorno en tinta.
+          background = paused ? Colors.transparent : kManaGray;
+          foreground = kManaInk;
         } else {
           background = paused
               ? Colors.transparent
@@ -95,9 +97,10 @@ class _TimerButtonState extends State<TimerButton>
                       : null,
                   boxShadow: classic && !paused
                       ? const [
+                          // La sombra de los símbolos de maná.
                           BoxShadow(
                             color: Color(0xFF0B0705),
-                            offset: Offset(0, 2),
+                            offset: Offset(-1.5, 2.5),
                           ),
                         ]
                       : null,

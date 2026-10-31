@@ -278,10 +278,10 @@ class _ClassicFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: alpha),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(10),
         boxShadow: const [
           BoxShadow(
             color: Color(0xB3000000),
@@ -290,7 +290,7 @@ class _ClassicFrame extends StatelessWidget {
           ),
         ],
       ),
-      child: ClipRRect(borderRadius: BorderRadius.circular(6), child: child),
+      child: ClipRRect(borderRadius: BorderRadius.circular(7), child: child),
     );
   }
 }
@@ -850,7 +850,7 @@ class _Pip extends StatelessWidget {
       height: size,
       alignment: Alignment.center,
       decoration: classic
-          ? kParchmentPip
+          ? kManaPip
           : BoxDecoration(
               shape: BoxShape.circle,
               color: Colors.black.withValues(alpha: 0.42),
@@ -864,7 +864,7 @@ class _Pip extends StatelessWidget {
         style: withFont(
           look.numberFont,
           TextStyle(
-            color: classic ? kInk : Colors.white,
+            color: classic ? kManaInk : Colors.white,
             fontSize: 30,
             fontWeight: FontWeight.w700,
             height: 1,

@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/look.dart';
 
@@ -206,7 +208,7 @@ class CenterBar extends StatelessWidget {
     );
     return Container(
       height: 76,
-      padding: const EdgeInsets.all(4),
+      padding: const EdgeInsets.all(3),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: alpha),
         borderRadius: BorderRadius.circular(10),
@@ -219,7 +221,7 @@ class CenterBar extends StatelessWidget {
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(7),
         child: Stack(
           fit: StackFit.expand,
           children: [
@@ -285,12 +287,7 @@ class CenterBar extends StatelessWidget {
                           child: InkWell(
                             customBorder: const CircleBorder(),
                             onTap: a.onPressed,
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: kParchmentPip,
-                              child: Icon(a.icon, color: kInk, size: 20),
-                            ),
+                            child: _ManaSymbol.forAction(a.icon),
                           ),
                         ),
                       ),
@@ -324,4 +321,98 @@ class CenterBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Qué dibuja un símbolo de maná de la barra del borde antiguo.
+enum _Glyph { tap, life, icon }
+
+/// Los botones de la barra del borde antiguo, como los símbolos de coste de
+/// las cartas ([kManaPip]). Girar el panel es el símbolo de girar ({T}) y
+/// reiniciar, un coste genérico de 20: la vida a la que vuelve la partida
+/// (con el de enderezar, la misma flecha en espejo, no se distinguían). El
+/// resto lleva su icono.
+class _ManaSymbol extends StatelessWidget {
+  const _ManaSymbol._(this.glyph, {this.icon});
+
+  factory _ManaSymbol.forAction(IconData icon) => switch (icon) {
+    Icons.swap_vert => const _ManaSymbol._(_Glyph.tap),
+    Icons.refresh => const _ManaSymbol._(_Glyph.life),
+    _ => _ManaSymbol._(_Glyph.icon, icon: icon),
+  };
+
+  final _Glyph glyph;
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      decoration: kManaPip,
+      child: switch (glyph) {
+        _Glyph.icon => Icon(icon, color: kManaInk, size: 21),
+        _Glyph.tap => CustomPaint(
+          size: const Size.square(38),
+          painter: _TapPainter(color: kManaInk),
+        ),
+        _Glyph.life => Text(
+          '20',
+          style: withFont(
+            'Vollkorn',
+            const TextStyle(
+              color: kManaInk,
+              fontSize: 19,
+              fontWeight: FontWeight.w900,
+              height: 1,
+              fontFeatures: kNumberFeatures,
+            ),
+          ),
+        ),
+      },
+    );
+  }
+}
+
+/// La flecha curva del símbolo de girar ({T}): sale de abajo a la izquierda,
+/// pasa por arriba y baja por la derecha con la punta hacia abajo.
+class _TapPainter extends CustomPainter {
+  _TapPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide / 24;
+    canvas
+      ..save()
+      ..scale(s);
+    final stroke = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round;
+    const center = Offset(12, 13);
+    const r = 6.2;
+    canvas.drawArc(
+      Rect.fromCircle(center: center, radius: r),
+      pi * 0.9,
+      pi * 1.1,
+      false,
+      stroke,
+    );
+    final end = center + const Offset(r, 0);
+    canvas.drawPath(
+      Path()
+        ..moveTo(end.dx - 3.6, end.dy - 0.6)
+        ..lineTo(end.dx + 3.6, end.dy - 0.6)
+        ..lineTo(end.dx, end.dy + 4.4)
+        ..close(),
+      Paint()..color = color,
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_TapPainter old) => old.color != color;
 }

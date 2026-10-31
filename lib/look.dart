@@ -235,7 +235,7 @@ class Look {
     AppTheme.original => 78,
     AppTheme.modern => isCards ? 74 : 0,
     // La barra es una carta tumbada con su marco: 76 de alto.
-    AppTheme.classic => 84,
+    AppTheme.classic => 78,
   };
 
   /// Opacidad de la barra central si no se cambia en Ajustes.
@@ -292,22 +292,19 @@ Color shade(Color c, double f) {
   return Color.fromARGB(255, ch(c.r), ch(c.g), ch(c.b));
 }
 
-/// Pergamino de las cajas de texto y los botones del borde antiguo.
-const Color kParchmentLight = Color(0xFFFBF4DE);
-const Color kParchment = Color(0xFFDCC89C);
-const Color kParchmentDark = Color(0xFFA88D5C);
+/// Tinta oscura del borde antiguo, sobre el pergamino.
 const Color kInk = Color(0xFF2A1D10);
 
-/// Botón redondo de pergamino, como un símbolo de maná.
-const BoxDecoration kParchmentPip = BoxDecoration(
+/// Los botones del borde antiguo, como un símbolo de coste de maná
+/// genérico: el redondel gris de las cartas, con el dibujo en [kManaInk] y
+/// la sombra negra desplazada abajo a la izquierda de la impresión.
+const BoxDecoration kManaPip = BoxDecoration(
   shape: BoxShape.circle,
-  gradient: RadialGradient(
-    center: Alignment(-0.3, -0.4),
-    colors: [kParchmentLight, kParchment, kParchmentDark],
-    stops: [0, 0.65, 1],
-  ),
-  boxShadow: [
-    BoxShadow(color: Color(0xFF0B0705), spreadRadius: 2),
-    BoxShadow(color: Color(0x99000000), offset: Offset(0, 3), blurRadius: 8),
-  ],
+  color: kManaGray,
+  border: Border.fromBorderSide(BorderSide(color: Color(0x66000000))),
+  boxShadow: [BoxShadow(color: Color(0xFF0B0705), offset: Offset(-1.5, 2.5))],
 );
+
+/// El gris del maná genérico y la tinta de los símbolos.
+const Color kManaGray = Color(0xFFCAC5C0);
+const Color kManaInk = Color(0xFF0D0F0F);

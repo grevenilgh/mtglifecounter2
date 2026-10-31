@@ -80,7 +80,7 @@ class _CounterLayoutState extends State<CounterLayout> {
               AppTheme.modern =>
                 look.isCards ? const EdgeInsets.all(12) : EdgeInsets.zero,
               // El marco de carta es gordo: ocupa el margen de antes.
-              AppTheme.classic => const EdgeInsets.all(5),
+              AppTheme.classic => const EdgeInsets.all(3),
             },
             child: Stack(
               children: [
