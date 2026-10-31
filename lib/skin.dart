@@ -5,9 +5,9 @@ enum SkinBackground {
   alicante('assets/images/BackgroundBW.png', 'AlicanteMTG'),
   fullTapped('assets/images/tap.png', 'Full Tapped'),
   oldSchool(
-    'assets/images/oldschool.png',
+    'assets/images/oldschool.jpg',
     'Old School',
-    screenAsset: 'assets/images/oldschool_pantalla.png',
+    screenAsset: 'assets/images/oldschool_pantalla.jpg',
   ),
   none(null, 'Sin imagen'),
 
@@ -22,7 +22,7 @@ enum SkinBackground {
   /// La versión para «una imagen para toda la pantalla», si la forma de
   /// [asset] no va con la de un móvil. El logo de Old School es casi
   /// cuadrado: al cubrir la pantalla perdía medio rótulo por los lados, así
-  /// que esta lo lleva algo estirado de alto y con margen arriba y abajo.
+  /// que esta lo lleva con blanco arriba y abajo hasta la forma de un móvil.
   final String? screenAsset;
 
   static SkinBackground fromName(String? name) =>
