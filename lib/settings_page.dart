@@ -338,14 +338,6 @@ class SettingsPage extends StatelessWidget {
               ],
             ),
             _SwitchRow(
-              title: 'Historial de vidas',
-              subtitle:
-                  'Oculto se sigue apuntando: al volver a enseñarlo sale '
-                  'entero. Sin él, el número se centra en el panel.',
-              value: settings.showHistory,
-              onChanged: (v) => settings.showHistory = v,
-            ),
-            _SwitchRow(
               title: 'Animaciones al cambiar vidas',
               subtitle:
                   'Al perder, el número se sacude y el borde se tiñe de rojo; '
@@ -516,6 +508,14 @@ class SettingsPage extends StatelessWidget {
                   'al volver.',
               value: settings.rememberGame,
               onChanged: (v) => settings.rememberGame = v,
+            ),
+            _SwitchRow(
+              title: 'Historial de vidas',
+              subtitle:
+                  'Oculto se sigue apuntando: al volver a enseñarlo sale '
+                  'entero. Sin él, el número se centra en el panel.',
+              value: settings.showHistory,
+              onChanged: (v) => settings.showHistory = v,
             ),
             _SwitchRow(
               title: 'Mantener la pantalla encendida',

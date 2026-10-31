@@ -51,7 +51,7 @@ No hay gestor de estado: el estado compartido son `ChangeNotifier` de Flutter qu
 - `lib/counter_layout.dart`: `CounterLayout`, la pantalla del contador (fondo, los dos paneles y la barra), que usan la pantalla principal y la miniatura de Ajustes, y `barColorFor`.
 - `lib/screen_image.dart`: con «una imagen para toda la pantalla», cada panel pinta solo su trozo de la imagen, alineado con la pantalla y derecho aunque el panel esté girado.
 - `lib/center_bar.dart`: la barra central de cada tema. La cantidad por toque (− 1 +) solo sale si está activada en Ajustes; sin ella cada toque cuenta 1.
-- `lib/settings_page.dart`: pantalla de Ajustes en dos pestañas, «Diseño» (arriba, fijos, el tema y una miniatura del contador (`_Preview`, la pantalla de verdad en pequeño con una partida de ejemplo); debajo skin y sus colores con `flutter_colorpicker` y foto con `image_picker`, imagen de fondo, paneles, transparencia) y «Partida» (barra central, temporizador, partida). Cada grupo va en una tarjeta `_Group`.
+- `lib/settings_page.dart`: pantalla de Ajustes en dos pestañas, «Diseño» (arriba, fijos, el tema y una miniatura del contador (`_Preview`, la pantalla de verdad en pequeño con una partida de ejemplo); debajo skin y sus colores con `flutter_colorpicker` y foto con `image_picker`, imagen de fondo, paneles, transparencia) y «Partida» (barra central, temporizador, partida e historial de vidas). Cada grupo va en una tarjeta `_Group`.
 - `lib/number_stepper.dart`: selector de 1 a 99. Una pulsación larga suma o resta 10.
 
 **Comunicación entre widgets:**
