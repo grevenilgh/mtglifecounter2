@@ -4,16 +4,26 @@ import 'package:flutter/material.dart';
 enum SkinBackground {
   alicante('assets/images/BackgroundBW.png', 'AlicanteMTG'),
   fullTapped('assets/images/tap.png', 'Full Tapped'),
-  oldSchool('assets/images/oldschool.png', 'Old School'),
+  oldSchool(
+    'assets/images/oldschool.png',
+    'Old School',
+    screenAsset: 'assets/images/oldschool_pantalla.png',
+  ),
   none(null, 'Sin imagen'),
 
   /// Una foto elegida por el usuario. Sus bytes los guarda [AppSettings].
   photo(null, 'Tu imagen');
 
-  const SkinBackground(this.asset, this.label);
+  const SkinBackground(this.asset, this.label, {this.screenAsset});
 
   final String? asset;
   final String label;
+
+  /// La versión para «una imagen para toda la pantalla», si la forma de
+  /// [asset] no va con la de un móvil. El logo de Old School es casi
+  /// cuadrado: al cubrir la pantalla perdía medio rótulo por los lados, así
+  /// que esta lo lleva algo estirado de alto y con margen arriba y abajo.
+  final String? screenAsset;
 
   static SkinBackground fromName(String? name) =>
       values.firstWhere((b) => b.name == name, orElse: () => none);

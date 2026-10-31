@@ -158,7 +158,10 @@ class AppSettings extends ChangeNotifier {
       final photo = _backgroundPhoto;
       return photo == null ? null : MemoryImage(photo);
     }
-    final asset = skin.background.asset;
+    final background = skin.background;
+    final asset = _backgroundMode == BackgroundMode.screen
+        ? background.screenAsset ?? background.asset
+        : background.asset;
     return asset == null ? null : AssetImage(asset);
   }
 
