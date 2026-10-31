@@ -143,10 +143,15 @@ Future<void> showTimerSheet(
   required RoundTimer timer,
   required AppSettings settings,
 }) {
+  // Puede ocupar toda la pantalla y se desplaza: con la altura normal de una
+  // hoja (9/16 de la pantalla), en los móviles pequeños los botones de
+  // iniciar quedaban fuera.
   return showModalBottomSheet<void>(
     context: context,
     backgroundColor: kCardColor,
     showDragHandle: true,
+    isScrollControlled: true,
+    useSafeArea: true,
     builder: (context) => ListenableBuilder(
       listenable: Listenable.merge([timer, settings]),
       builder: (context, _) {
@@ -161,7 +166,7 @@ Future<void> showTimerSheet(
             ? 'En pausa'
             : 'Preparado para empezar';
         return SafeArea(
-          child: Padding(
+          child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
             child: Column(
               mainAxisSize: MainAxisSize.min,

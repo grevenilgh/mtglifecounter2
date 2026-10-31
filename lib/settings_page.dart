@@ -525,35 +525,43 @@ class _Group extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      decoration: BoxDecoration(
+    // Un Material y no una caja de color: si no, el brillo al tocar los
+    // interruptores queda por debajo de la tarjeta y no se ve.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Material(
         color: kCardColor,
         borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              children: [
-                Icon(icon, color: kAccent, size: 20),
-                const SizedBox(width: 10),
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                  ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Icon(icon, color: kAccent, size: 20),
+                    const SizedBox(width: 10),
+                    // Con la letra del sistema grande, el título salta de
+                    // línea en vez de salirse de la tarjeta.
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              ...children,
+            ],
           ),
-          ...children,
-        ],
+        ),
       ),
     );
   }

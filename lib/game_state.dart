@@ -57,8 +57,12 @@ class PlayerState extends ChangeNotifier {
   };
 
   void restore(Map<String, dynamic> json) {
-    _life = json['life'] as int? ?? kInitialLife;
-    _committedLife = json['committedLife'] as int? ?? _life;
+    // Fuera de rango no se podría ni sumar ni restar: se recorta.
+    _life = (json['life'] as int? ?? kInitialLife).clamp(kMinLife, kMaxLife);
+    _committedLife = (json['committedLife'] as int? ?? _life).clamp(
+      kMinLife,
+      kMaxLife,
+    );
     _history
       ..clear()
       ..addAll((json['history'] as List? ?? const []).cast<String>());
@@ -135,7 +139,13 @@ class GameStorage {
     final saved = _prefs.getString(_kGame);
     if (saved == null) return;
     try {
-      _game.restore(jsonDecode(saved) as Map<String, dynamic>);
+      final json = jsonDecode(saved) as Map<String, dynamic>;
+      // Primero en una partida de prueba: si falla a la mitad, la de verdad
+      // no se queda con un jugador cargado y el otro no.
+      GameState()
+        ..restore(json)
+        ..dispose();
+      _game.restore(json);
     } on Object {
       // Una partida guardada que no se puede leer se descarta.
       _prefs.remove(_kGame);

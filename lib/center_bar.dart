@@ -43,11 +43,17 @@ class CenterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return switch (look.theme) {
-      AppTheme.original => _original(),
-      AppTheme.modern => _floating(),
-      AppTheme.classic => _leather(),
-    };
+    // La barra tiene alto fijo y se encoge entera si no cabe: con la letra
+    // del sistema muy grande, el reloj la ensanchaba tanto que los botones
+    // se quedaban diminutos.
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: switch (look.theme) {
+        AppTheme.original => _original(),
+        AppTheme.modern => _floating(),
+        AppTheme.classic => _leather(),
+      },
+    );
   }
 
   List<Widget> _items(Widget Function(BarAction) button, Widget? step) => [
@@ -64,12 +70,14 @@ class CenterBar extends StatelessWidget {
       color: color.withValues(alpha: alpha),
       child: LayoutBuilder(
         builder: (context, constraints) => FittedBox(
-          // Si la pantalla es muy estrecha la barra se encoge en vez de
-          // desbordarse.
+          // Si los botones no caben (pantalla estrecha, cantidad por toque y
+          // reloj a la vez) la barra se encoge en vez de desbordarse; si
+          // sobra sitio, se reparten a lo ancho.
           fit: BoxFit.scaleDown,
-          child: SizedBox(
-            width: constraints.maxWidth < 340 ? 340 : constraints.maxWidth,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
             child: Row(
+              mainAxisSize: MainAxisSize.min,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: _items(
                 (a) => IconButton(

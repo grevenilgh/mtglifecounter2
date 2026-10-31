@@ -67,9 +67,13 @@ class RoundTimer extends ChangeNotifier {
   /// Si se ha tocado desde el último reinicio.
   bool get started => running || _accumulated > Duration.zero;
 
-  Duration get elapsed =>
-      _accumulated +
-      (running ? _clock().difference(_startedAt!) : Duration.zero);
+  // Si se atrasa el reloj del móvil con el temporizador en marcha, lo que va
+  // desde que arrancó saldría negativo: cuenta como cero.
+  Duration get elapsed {
+    if (!running) return _accumulated;
+    final sinceStart = _clock().difference(_startedAt!);
+    return _accumulated + (sinceStart.isNegative ? Duration.zero : sinceStart);
+  }
 
   Duration get remaining {
     final left = roundLength - elapsed;

@@ -768,7 +768,9 @@ class _HitNumber extends StatelessWidget {
                       .copyWith(color: fill, shadows: shadows),
                   textAlign: TextAlign.center,
                   maxLines: 1,
-                  minFontSize: 60,
+                  // Bajo para que «−999» quepa entero en las pantallas
+                  // estrechas: con 60 se cortaba y se leía «−99».
+                  minFontSize: 24,
                   textScaleFactor: 1.0,
                 ),
               ),

@@ -18,8 +18,9 @@ class AppSettings extends ChangeNotifier {
         _customSkin = Skin.customFromJson(
           jsonDecode(custom) as Map<String, dynamic>,
         );
-      } on FormatException {
-        // Si lo guardado no se puede leer, se queda la personalizada por defecto.
+      } on Object {
+        // Si lo guardado no se puede leer (o no es lo que se espera), se
+        // queda la personalizada por defecto.
       }
     }
     final photo = _prefs.getString(_kBackgroundPhoto);

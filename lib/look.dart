@@ -268,12 +268,14 @@ const List<FontFeature> kNumberFeatures = [
   FontFeature.tabularFigures(),
 ];
 
-/// En los tests no hay red: ahí se usa la fuente del sistema.
+/// En los tests no hay red: ahí la fuente se pide solo por su nombre y se usa
+/// la que el test haya cargado con ese nombre (o la de por defecto).
 bool useGoogleFonts = true;
 
 /// Aplica una fuente de Google Fonts a [style], o lo deja igual si no hay.
 TextStyle withFont(String? font, TextStyle style) {
-  if (font == null || !useGoogleFonts) return style;
+  if (font == null) return style;
+  if (!useGoogleFonts) return style.copyWith(fontFamily: font);
   return GoogleFonts.getFont(font, textStyle: style);
 }
 
