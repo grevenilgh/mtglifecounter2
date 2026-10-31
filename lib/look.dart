@@ -234,7 +234,8 @@ class Look {
   double get barGap => switch (theme) {
     AppTheme.original => 78,
     AppTheme.modern => isCards ? 74 : 0,
-    AppTheme.classic => 66,
+    // La barra es una carta tumbada con su marco: 76 de alto.
+    AppTheme.classic => 84,
   };
 
   /// Opacidad de la barra central si no se cambia en Ajustes.

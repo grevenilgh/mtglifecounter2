@@ -143,21 +143,69 @@ class CenterBar extends StatelessWidget {
     );
   }
 
+  // Grosor del marco dorado de la barra del borde antiguo, en dp.
+  static const double _goldFrame = 13;
+
+  // Una tira del marco dorado: el borde derecho de Sol'kanar, con su filo
+  // exterior (la línea clara) a la derecha. [turns] la gira de 90 en 90.
+  Widget _goldStrip(
+    Animation<double> opacity, {
+    int turns = 0,
+    bool flip = false,
+  }) {
+    Widget image = Image.asset(
+      CardFrame.oro.asset,
+      fit: BoxFit.cover,
+      opacity: opacity,
+      filterQuality: FilterQuality.medium,
+    );
+    if (flip) image = Transform.flip(flipX: true, child: image);
+    return turns == 0 ? image : RotatedBox(quarterTurns: turns, child: image);
+  }
+
+  // Franja de arriba o de abajo: la tira tumbada, puesta las veces que haga
+  // falta y una sí y otra no en espejo, para que no se note la unión.
+  Widget _goldBand(Animation<double> opacity, {required int turns}) {
+    // La tira mide 36 × 806: tumbada y a [_goldFrame] de alto, cada copia
+    // ocupa esto de largo.
+    const length = 806 * _goldFrame / 36;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final copies = (constraints.maxWidth / length).ceil().clamp(1, 20);
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < copies; i++)
+              Expanded(
+                child: i.isOdd
+                    ? Transform.flip(
+                        flipX: true,
+                        child: _goldStrip(opacity, turns: turns),
+                      )
+                    : _goldStrip(opacity, turns: turns),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
   // Borde antiguo: una carta multicolor de Legends tumbada, de lado a lado
-  // como los paneles. Borde negro, el marco dorado y, dentro, su caja de
-  // texto con los botones de pergamino.
+  // como los paneles. Borde negro, el marco dorado de verdad (el mismo que
+  // llevan los paneles con marco de oro) y, dentro, su caja de texto hundida
+  // con los botones de pergamino.
   Widget _leather() {
     final opacity = AlwaysStoppedAnimation(alpha);
     const bevel = BoxDecoration(
       border: Border(
-        top: BorderSide(color: Color(0xA6000000), width: 1.5),
-        left: BorderSide(color: Color(0xA6000000), width: 1.5),
-        right: BorderSide(color: Color(0x73FFF0D2), width: 1.5),
-        bottom: BorderSide(color: Color(0x73FFF0D2), width: 1.5),
+        top: BorderSide(color: Color(0xA6000000), width: 2),
+        left: BorderSide(color: Color(0xA6000000), width: 2),
+        right: BorderSide(color: Color(0x73FFF0D2), width: 2),
+        bottom: BorderSide(color: Color(0x73FFF0D2), width: 2),
       ),
     );
     return Container(
-      height: 60,
+      height: 76,
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: alpha),
@@ -175,17 +223,39 @@ class CenterBar extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            // El marco: la tira horizontal del oro, repetida a lo ancho.
-            Image.asset(
-              CardFrame.oro.horizontalAsset!,
-              fit: BoxFit.fitHeight,
-              repeat: ImageRepeat.repeatX,
-              opacity: opacity,
-              filterQuality: FilterQuality.medium,
+            // El marco: las dos tiras de los lados y, encima, las franjas de
+            // arriba y abajo, con el filo claro siempre hacia fuera.
+            Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: _goldFrame,
+              child: _goldStrip(opacity, flip: true),
+            ),
+            Positioned(
+              right: 0,
+              top: 0,
+              bottom: 0,
+              width: _goldFrame,
+              child: _goldStrip(opacity),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: _goldFrame,
+              child: _goldBand(opacity, turns: 3),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: _goldFrame,
+              child: _goldBand(opacity, turns: 1),
             ),
             // La caja de texto, que en los paneles va de pie: aquí tumbada.
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+              padding: const EdgeInsets.all(_goldFrame),
               child: DecoratedBox(
                 position: DecorationPosition.foreground,
                 decoration: bevel,
