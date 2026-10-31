@@ -546,15 +546,18 @@ void main() {
             });
           }
 
-          for (final (label, tooltip) in [
-            ('moneda', 'Lanzar moneda'),
-            ('dado', 'Tirar el dado D20'),
-            ('duelo', 'Duelo: piedra, papel o tijera'),
+          for (final (label, tab) in [
+            ('moneda', 'Moneda'),
+            ('dado', 'Dado'),
+            ('duelo', 'Duelo'),
           ]) {
             await step('sorteo $label', () async {
               await tester.tap(find.byTooltip('Sorteos: moneda, dado y duelo'));
-              await tester.pumpAndSettle();
-              await tester.tap(find.byTooltip(tooltip));
+              // Sin pumpAndSettle: el dado se tira solo al abrir.
+              for (var i = 0; i < 40; i++) {
+                await tester.pump(const Duration(milliseconds: 100));
+              }
+              await tester.tap(find.text(tab));
               for (var i = 0; i < 40; i++) {
                 await tester.pump(const Duration(milliseconds: 100));
               }

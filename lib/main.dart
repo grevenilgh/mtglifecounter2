@@ -110,8 +110,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ValueNotifier<bool> _resetNotifier = ValueNotifier<bool>(false);
   // La pantalla entera, para que los paneles enseñen su trozo de la imagen.
   int _lifeChangeAmount = 1;
-  // La barra enseña los sorteos en vez de sus botones normales.
-  bool _drawsOpen = false;
   String? _iconSkin;
 
   @override
@@ -161,13 +159,6 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
 
   void _openTimer() {
     showTimerSheet(context, timer: widget.timer, settings: widget.settings);
-  }
-
-  void _openDraw(
-    Future<void> Function(BuildContext, {required bool flipTop}) draw,
-  ) {
-    setState(() => _drawsOpen = false);
-    draw(context, flipTop: widget.game.rotated);
   }
 
   void _resetGame() {
@@ -245,27 +236,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           look: look,
           color: barColorFor(settings),
           alpha: settings.barOpacity / 100,
-          leading: _drawsOpen
-              ? [
-                  BarAction(
-                    Icons.arrow_back,
-                    'Volver',
-                    () => setState(() => _drawsOpen = false),
-                  ),
-                ]
-              : [
-                  BarAction(
-                    Icons.refresh,
-                    'Reiniciar partida',
-                    _showResetConfirmationDialog,
-                  ),
-                  BarAction(
-                    Icons.swap_vert,
-                    'Girar el panel de arriba',
-                    game.toggleRotation,
-                  ),
-                ],
-          timer: settings.showTimer && !_drawsOpen
+          leading: [
+            BarAction(
+              Icons.refresh,
+              'Reiniciar partida',
+              _showResetConfirmationDialog,
+            ),
+            BarAction(
+              Icons.swap_vert,
+              'Girar el panel de arriba',
+              game.toggleRotation,
+            ),
+          ],
+          timer: settings.showTimer
               ? TimerButton(
                   timer: widget.timer,
                   look: look,
@@ -273,7 +256,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   onTap: _openTimer,
                 )
               : null,
-          stepper: settings.showStepper && !_drawsOpen
+          stepper: settings.showStepper
               ? (color, compact) => NumberStepper(
                   resetNotifier: _resetNotifier,
                   initialValue: _lifeChangeAmount,
@@ -286,34 +269,15 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   },
                 )
               : null,
-          // Los sorteos van tras un botón que despliega la barra.
-          trailing: _drawsOpen
-              ? [
-                  BarAction(
-                    Icons.toll_outlined,
-                    'Lanzar moneda',
-                    () => _openDraw(showCoinFlip),
-                  ),
-                  BarAction(
-                    Icons.casino_outlined,
-                    'Tirar el dado D20',
-                    () => _openDraw(showDiceRoll),
-                  ),
-                  BarAction(
-                    Icons.style_outlined,
-                    'Duelo: piedra, papel o tijera',
-                    () => _openDraw(showDuel),
-                  ),
-                ]
-              : [
-                  // El dado ya es el icono del D20 dentro de los sorteos.
-                  BarAction(
-                    Icons.shuffle,
-                    'Sorteos: moneda, dado y duelo',
-                    () => setState(() => _drawsOpen = true),
-                  ),
-                  BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
-                ],
+          // Los sorteos se abren en el dado y dentro se cambia de pestaña.
+          trailing: [
+            BarAction(
+              Icons.shuffle,
+              'Sorteos: moneda, dado y duelo',
+              () => showDraws(context, flipTop: game.rotated),
+            ),
+            BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
+          ],
         );
         return Scaffold(
           backgroundColor: Colors.black,

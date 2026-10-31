@@ -10,14 +10,33 @@ import 'package:mtglifecounter/settings_page.dart';
 
 // Los tres sorteos de la barra: moneda, dado D20 y duelo de piedra, papel o
 // tijera. Están portados del contador de mtgtournament (site.js y site.css).
-// Cada uno ocupa la pantalla: el resultado sale en las dos mitades, la de
-// arriba girada si el jugador de arriba está enfrente.
+// Van en una pantalla completa con una pestaña para cada uno. El resultado
+// sale una sola vez, derecho para quien tiene el móvil: la moneda y el dado
+// se leen desde los dos lados. Solo el duelo gira la carta de arriba si el
+// jugador de arriba está enfrente.
 
 final Random _random = Random();
 
-/// Abre un sorteo a pantalla completa. Se cierra solo con su botón: tocar
-/// fuera no lo cierra, para no perder el resultado por un toque sin querer.
-Future<void> _showDraw(BuildContext context, Widget child) {
+/// Los sorteos, en el orden de las pestañas.
+enum DrawKind {
+  coin('Moneda', Icons.toll_outlined),
+  dice('Dado', Icons.casino_outlined),
+  duel('Duelo', Icons.style_outlined);
+
+  const DrawKind(this.label, this.icon);
+
+  final String label;
+  final IconData icon;
+}
+
+/// Abre los sorteos a pantalla completa, en [initial] (el dado si no se dice
+/// otro). Se cierra solo con su botón: tocar fuera no lo cierra, para no
+/// perder el resultado por un toque sin querer.
+Future<void> showDraws(
+  BuildContext context, {
+  required bool flipTop,
+  DrawKind initial = DrawKind.dice,
+}) {
   return Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: false,
@@ -27,27 +46,143 @@ Future<void> _showDraw(BuildContext context, Widget child) {
         opacity: animation,
         child: Material(
           color: const Color(0xE6080809),
-          child: SafeArea(child: child),
+          child: SafeArea(
+            child: _DrawsScreen(flipTop: flipTop, initial: initial),
+          ),
         ),
       ),
     ),
   );
 }
 
-Future<void> showCoinFlip(BuildContext context, {required bool flipTop}) =>
-    _showDraw(context, _CoinDraw(flipTop: flipTop));
+/// Las pestañas arriba y debajo el sorteo elegido. Al cambiar de pestaña el
+/// sorteo nuevo se lanza solo, como al abrirlo.
+class _DrawsScreen extends StatefulWidget {
+  const _DrawsScreen({required this.flipTop, required this.initial});
 
-Future<void> showDiceRoll(BuildContext context, {required bool flipTop}) =>
-    _showDraw(context, _DiceDraw(flipTop: flipTop));
+  final bool flipTop;
+  final DrawKind initial;
 
-Future<void> showDuel(BuildContext context, {required bool flipTop}) =>
-    _showDraw(context, _DuelDraw(flipTop: flipTop));
+  @override
+  State<_DrawsScreen> createState() => _DrawsScreenState();
+}
 
-/// Las dos mitades con el rótulo del resultado y, en medio, el sorteo y sus
-/// botones.
+class _DrawsScreenState extends State<_DrawsScreen> {
+  late DrawKind _kind = widget.initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final draw = switch (_kind) {
+      DrawKind.coin => const _CoinDraw(),
+      DrawKind.dice => const _DiceDraw(),
+      DrawKind.duel => _DuelDraw(flipTop: widget.flipTop),
+    };
+    return Column(
+      children: [
+        _DrawTabs(
+          selected: _kind,
+          onSelect: (kind) {
+            if (kind != _kind) setState(() => _kind = kind);
+          },
+        ),
+        Expanded(
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 200),
+            child: KeyedSubtree(key: ValueKey(_kind), child: draw),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DrawTabs extends StatelessWidget {
+  const _DrawTabs({required this.selected, required this.onSelect});
+
+  final DrawKind selected;
+  final ValueChanged<DrawKind> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: Colors.white.withAlpha(20),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          children: [
+            for (final kind in DrawKind.values)
+              Expanded(
+                child: _DrawTab(
+                  kind: kind,
+                  selected: kind == selected,
+                  onTap: () => onSelect(kind),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawTab extends StatelessWidget {
+  const _DrawTab({
+    required this.kind,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final DrawKind kind;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected ? const Color(0xFF1A1306) : Colors.white70;
+    return Semantics(
+      button: true,
+      selected: selected,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: 44,
+          decoration: BoxDecoration(
+            color: selected ? kAccent : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(kind.icon, color: color, size: 20),
+              const SizedBox(width: 6),
+              Flexible(
+                child: Text(
+                  kind.label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// El sitio del sorteo, el rótulo del resultado y los botones.
 class _DrawLayout extends StatelessWidget {
   const _DrawLayout({
-    required this.flipTop,
     required this.label,
     required this.visible,
     required this.center,
@@ -56,10 +191,54 @@ class _DrawLayout extends StatelessWidget {
     this.hint,
   });
 
-  final bool flipTop;
   final String label;
   final bool visible;
+
+  /// Ocupa todo el sitio que queda encima del rótulo.
   final Widget center;
+  final VoidCallback again;
+  final String againLabel;
+  final String? hint;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Expanded(child: center),
+        AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 300),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: withFont(
+                  'Barlow Condensed',
+                  const TextStyle(
+                    color: kAccent,
+                    fontSize: 48,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 6,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _Footer(again: again, againLabel: againLabel, hint: hint),
+      ],
+    );
+  }
+}
+
+/// Los botones y la línea de ayuda. Ocupa lo mismo en los tres sorteos, con
+/// ayuda o sin ella, para que los botones no salten al cambiar de pestaña.
+class _Footer extends StatelessWidget {
+  const _Footer({required this.again, required this.againLabel, this.hint});
+
   final VoidCallback again;
   final String againLabel;
 
@@ -69,37 +248,8 @@ class _DrawLayout extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget half(bool top) {
-      final text = AnimatedOpacity(
-        opacity: visible ? 1 : 0,
-        duration: const Duration(milliseconds: 300),
-        child: Text(
-          label,
-          textAlign: TextAlign.center,
-          style: withFont(
-            'Barlow Condensed',
-            const TextStyle(
-              color: kAccent,
-              fontSize: 40,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 6,
-            ),
-          ),
-        ),
-      );
-      return Expanded(
-        child: Center(
-          child: top && flipTop
-              ? RotatedBox(quarterTurns: 2, child: text)
-              : text,
-        ),
-      );
-    }
-
     return Column(
       children: [
-        half(true),
-        center,
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
           child: _Buttons(again: again, againLabel: againLabel),
@@ -112,14 +262,16 @@ class _DrawLayout extends StatelessWidget {
             children: [
               const Icon(Icons.vibration, color: Colors.white54, size: 16),
               const SizedBox(width: 6),
-              Text(
-                hint ?? '',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+              Flexible(
+                child: Text(
+                  hint ?? '',
+                  style: const TextStyle(color: Colors.white54, fontSize: 13),
+                ),
               ),
             ],
           ),
         ),
-        half(false),
+        const SizedBox(height: 16),
       ],
     );
   }
@@ -133,33 +285,41 @@ class _Buttons extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 140,
-          child: FilledButton.tonal(
-            onPressed: again,
-            style: FilledButton.styleFrom(
-              minimumSize: const Size.fromHeight(48),
+    // Encogen si la pantalla no llega para los dos de 140.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Flexible(
+            child: SizedBox(
+              width: 140,
+              child: FilledButton.tonal(
+                onPressed: again,
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: Text(againLabel),
+              ),
             ),
-            child: Text(againLabel),
           ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 140,
-          child: FilledButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: FilledButton.styleFrom(
-              backgroundColor: kAccent,
-              foregroundColor: const Color(0xFF1A1306),
-              minimumSize: const Size.fromHeight(48),
+          const SizedBox(width: 12),
+          Flexible(
+            child: SizedBox(
+              width: 140,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(),
+                style: FilledButton.styleFrom(
+                  backgroundColor: kAccent,
+                  foregroundColor: const Color(0xFF1A1306),
+                  minimumSize: const Size.fromHeight(48),
+                ),
+                child: const Text('Cerrar'),
+              ),
             ),
-            child: const Text('Cerrar'),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -170,9 +330,7 @@ class _Buttons extends StatelessWidget {
 /// cara: un múltiplo de una vuelta acaba de cara y media vuelta más, de cruz,
 /// así que la moneda se posa en la que ha salido sin ningún salto.
 class _CoinDraw extends StatefulWidget {
-  const _CoinDraw({required this.flipTop});
-
-  final bool flipTop;
+  const _CoinDraw();
 
   @override
   State<_CoinDraw> createState() => _CoinDrawState();
@@ -306,93 +464,96 @@ class _CoinDrawState extends State<_CoinDraw>
   @override
   Widget build(BuildContext context) {
     return _DrawLayout(
-      flipTop: widget.flipTop,
       label: _label,
       visible: _shown,
       again: _throw,
       againLabel: 'Lanzar',
       hint: _sensing ? 'O lánzala con un golpe de muñeca' : null,
-      center: SizedBox(
-        height: 300,
-        child: AnimatedBuilder(
-          animation: _c,
-          builder: (context, _) {
-            final t = _c.value;
-            final start = _fromHalf * pi;
-            final end = _toHalf * pi;
-            double height; // dp sobre la mesa
-            double angle; // giro sobre el eje horizontal, sin la inclinación
-            double press = 0; // aplastado del impulso
-            double tilt; // inclinación lateral
-            if (t < _lift) {
-              press = sin(pi * t / _lift);
-              height = 0;
-              angle = start;
-              tilt = 0;
-            } else if (t < _land) {
-              final p = (t - _lift) / (_land - _lift);
-              // Parábola: sube y cae. El giro frena un poco al final.
-              height = 4 * p * (1 - p) * _height;
-              angle = start + (end - start) * Curves.easeOutSine.transform(p);
-              tilt = _tilt * sin(pi * p);
-            } else {
-              final q = (t - _land) / (1 - _land);
-              // Dos botes cada vez más bajos y luego quieta.
-              final drop = _height / 190;
-              height = q < 0.45
-                  ? 22 * drop * sin(pi * q / 0.45)
-                  : q < 0.72
-                  ? 7 * drop * sin(pi * (q - 0.45) / 0.27)
-                  : 0;
-              // Se asienta bamboleándose.
-              final settle = pow(1 - q, 2).toDouble();
-              angle = end + 0.42 * settle * sin(q * pi * 5);
-              tilt = _tilt * 0.4 * settle * sin(q * pi * 3);
-            }
-            // En la mesa queda algo echada hacia atrás, como vista desde la
-            // silla: así se le ve el grosor aunque esté quieta.
-            angle += _rest;
-            final h = height / _height;
-            return Stack(
-              clipBehavior: Clip.none,
-              alignment: Alignment.center,
-              children: [
-                // Sombra en la mesa: más pequeña y clara cuanto más alta.
-                Positioned(
-                  bottom: 26,
-                  child: Opacity(
-                    opacity: (0.85 - 0.6 * h).clamp(0, 1),
-                    child: Transform.scale(
-                      scale: 1 - 0.5 * h,
-                      child: Container(
-                        width: 160,
-                        height: 24,
-                        decoration: const BoxDecoration(
-                          gradient: RadialGradient(
-                            colors: [Color(0xD9000000), Color(0x00000000)],
-                          ),
-                          borderRadius: BorderRadius.all(
-                            Radius.elliptical(80, 12),
+      // Abajo, para que suba por todo el sitio libre de encima.
+      center: Align(
+        alignment: Alignment.bottomCenter,
+        child: SizedBox(
+          height: 300,
+          child: AnimatedBuilder(
+            animation: _c,
+            builder: (context, _) {
+              final t = _c.value;
+              final start = _fromHalf * pi;
+              final end = _toHalf * pi;
+              double height; // dp sobre la mesa
+              double angle; // giro sobre el eje horizontal, sin la inclinación
+              double press = 0; // aplastado del impulso
+              double tilt; // inclinación lateral
+              if (t < _lift) {
+                press = sin(pi * t / _lift);
+                height = 0;
+                angle = start;
+                tilt = 0;
+              } else if (t < _land) {
+                final p = (t - _lift) / (_land - _lift);
+                // Parábola: sube y cae. El giro frena un poco al final.
+                height = 4 * p * (1 - p) * _height;
+                angle = start + (end - start) * Curves.easeOutSine.transform(p);
+                tilt = _tilt * sin(pi * p);
+              } else {
+                final q = (t - _land) / (1 - _land);
+                // Dos botes cada vez más bajos y luego quieta.
+                final drop = _height / 190;
+                height = q < 0.45
+                    ? 22 * drop * sin(pi * q / 0.45)
+                    : q < 0.72
+                    ? 7 * drop * sin(pi * (q - 0.45) / 0.27)
+                    : 0;
+                // Se asienta bamboleándose.
+                final settle = pow(1 - q, 2).toDouble();
+                angle = end + 0.42 * settle * sin(q * pi * 5);
+                tilt = _tilt * 0.4 * settle * sin(q * pi * 3);
+              }
+              // En la mesa queda algo echada hacia atrás, como vista desde la
+              // silla: así se le ve el grosor aunque esté quieta.
+              angle += _rest;
+              final h = height / _height;
+              return Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  // Sombra en la mesa: más pequeña y clara cuanto más alta.
+                  Positioned(
+                    bottom: 26,
+                    child: Opacity(
+                      opacity: (0.85 - 0.6 * h).clamp(0, 1),
+                      child: Transform.scale(
+                        scale: 1 - 0.5 * h,
+                        child: Container(
+                          width: 160,
+                          height: 24,
+                          decoration: const BoxDecoration(
+                            gradient: RadialGradient(
+                              colors: [Color(0xD9000000), Color(0x00000000)],
+                            ),
+                            borderRadius: BorderRadius.all(
+                              Radius.elliptical(80, 12),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                Transform.translate(
-                  offset: Offset(0, -height + 5 * press),
-                  child: Transform.scale(
-                    // Más grande cuanto más cerca de quien mira.
-                    scale: (1 + 0.38 * h) * (1 - 0.04 * press),
-                    child: Transform.rotate(
-                      angle: tilt,
-                      child: _Coin3D(angle: angle),
+                  Transform.translate(
+                    offset: Offset(0, -height + 5 * press),
+                    child: Transform.scale(
+                      // Más grande cuanto más cerca de quien mira.
+                      scale: (1 + 0.38 * h) * (1 - 0.04 * press),
+                      child: Transform.rotate(
+                        angle: tilt,
+                        child: _Coin3D(angle: angle),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            );
-          },
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -541,9 +702,7 @@ class _CoinFace extends StatelessWidget {
 // --- El dado D20 ----------------------------------------------------------
 
 class _DiceDraw extends StatefulWidget {
-  const _DiceDraw({required this.flipTop});
-
-  final bool flipTop;
+  const _DiceDraw();
 
   @override
   State<_DiceDraw> createState() => _DiceDrawState();
@@ -795,7 +954,6 @@ class _DiceDrawState extends State<_DiceDraw>
       key: _areaKey,
       children: [
         _DrawLayout(
-          flipTop: widget.flipTop,
           label: 'Ha salido $_shownValue',
           visible: _shown,
           again: _roll,
@@ -803,7 +961,9 @@ class _DiceDrawState extends State<_DiceDraw>
           hint: _sensing ? 'O agita el móvil como un cubilete' : null,
           // El hueco donde se para; el dado se pinta encima, sobre toda la
           // pantalla, para que pueda recorrerla.
-          center: SizedBox(key: _slotKey, width: 240, height: 300),
+          center: Center(
+            child: SizedBox(key: _slotKey, width: 240, height: 240),
+          ),
         ),
         if (rest != null)
           Positioned.fill(
@@ -1633,11 +1793,9 @@ class _DuelDrawState extends State<_DuelDraw> with TickerProviderStateMixin {
     return Column(
       children: [
         side(_top, _topWins, true),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: _Buttons(again: _dealCards, againLabel: 'Repartir'),
-        ),
         side(_bottom, !_topWins, false),
+        // El aura y el trofeo ya dicen quién gana, así que no lleva rótulo.
+        _Footer(again: _dealCards, againLabel: 'Repartir'),
       ],
     );
   }
