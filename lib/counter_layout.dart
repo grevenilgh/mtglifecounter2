@@ -56,6 +56,7 @@ class _CounterLayoutState extends State<CounterLayout> {
       imageOpacity: settings.imageOpacity / 100,
       frameOpacity: settings.frameOpacity / 100,
       historyOpacity: settings.historyOpacity / 100,
+      showHistory: settings.showHistory,
       zoneMarks: settings.zoneMarks,
       focus: settings.focus,
       animations: settings.animations,

@@ -293,4 +293,39 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.binding.setSurfaceSize(null);
   });
+
+  testWidgets('sin historial se sigue apuntando y todo el panel cuenta', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final settings = AppSettings(prefs)..showHistory = false;
+    expect(AppSettings(prefs).showHistory, isFalse);
+    final game = GameState();
+    final storage = GameStorage(prefs, game);
+    final timer = RoundTimer(prefs);
+
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    await tester.pumpWidget(
+      MyApp(settings: settings, game: game, storage: storage, timer: timer),
+    );
+    final panel = find.byType(PlayerCounter).last;
+    final list = find.descendant(of: panel, matching: find.byType(ListView));
+    expect(list, findsNothing);
+
+    // Donde iba el historial ahora se suma.
+    final rect = tester.getRect(panel);
+    await tester.tapAt(Offset(rect.right - 20, rect.top + 40));
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(game.bottom.life, 21);
+    expect(game.bottom.history, ['+1 = 21']);
+
+    // Al volver a enseñarlo está todo lo apuntado.
+    settings.showHistory = true;
+    await tester.pump();
+    expect(list, findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.binding.setSurfaceSize(null);
+  });
 }

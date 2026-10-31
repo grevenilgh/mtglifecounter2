@@ -338,6 +338,14 @@ class SettingsPage extends StatelessWidget {
               ],
             ),
             _SwitchRow(
+              title: 'Historial de vidas',
+              subtitle:
+                  'Oculto se sigue apuntando: al volver a enseñarlo sale '
+                  'entero. Sin él, el número se centra en el panel.',
+              value: settings.showHistory,
+              onChanged: (v) => settings.showHistory = v,
+            ),
+            _SwitchRow(
               title: 'Animaciones al cambiar vidas',
               subtitle:
                   'Al perder, el número se sacude y el borde se tiñe de rojo; '
@@ -358,13 +366,15 @@ class SettingsPage extends StatelessWidget {
               label: 'Opacidad de la barra central',
               onChanged: (v) => settings.barOpacity = v,
             ),
-            const _Label('Historial'),
-            _PercentSlider(
-              value: settings.historyOpacity,
-              min: 0,
-              label: 'Opacidad del historial',
-              onChanged: (v) => settings.historyOpacity = v,
-            ),
+            if (settings.showHistory) ...[
+              const _Label('Historial'),
+              _PercentSlider(
+                value: settings.historyOpacity,
+                min: 0,
+                label: 'Opacidad del historial',
+                onChanged: (v) => settings.historyOpacity = v,
+              ),
+            ],
             if (settings.theme == AppTheme.classic) ...[
               const _Label('Marco'),
               _PercentSlider(

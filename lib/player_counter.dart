@@ -17,6 +17,7 @@ class PanelStyle {
     required this.imageOpacity,
     required this.frameOpacity,
     required this.historyOpacity,
+    this.showHistory = true,
     required this.zoneMarks,
     required this.focus,
     required this.animations,
@@ -37,6 +38,10 @@ class PanelStyle {
 
   /// De 0 a 1: el fondo del historial.
   final double historyOpacity;
+
+  /// Sin historial el número se centra en todo el panel y, en el borde
+  /// antiguo, la carta pierde la caja de texto y la línea de tipo.
+  final bool showHistory;
 
   /// Cómo se distingue la mitad que suma de la que resta.
   final ZoneMarks zoneMarks;
@@ -95,6 +100,17 @@ class _PlayerCounterState extends State<PlayerCounter>
     _lastLife = widget.player.life;
     widget.player.addListener(_onPlayerChanged);
     // Si la partida se ha recuperado, el historial empieza mostrando lo último.
+    _showLatest();
+  }
+
+  @override
+  void didUpdateWidget(PlayerCounter old) {
+    super.didUpdateWidget(old);
+    // Al volver a enseñar el historial, también desde lo último.
+    if (widget.style.showHistory && !old.style.showHistory) _showLatest();
+  }
+
+  void _showLatest() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
         _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
@@ -141,7 +157,7 @@ class _PlayerCounterState extends State<PlayerCounter>
     final height = context.size!.height;
     final tapX = details.localPosition.dx;
     final tapY = details.localPosition.dy;
-    if (tapX >= width - _historyReserve(widget.style.look)) return;
+    if (tapX >= width - _historyReserve(widget.style)) return;
 
     // La mitad de arriba suma y la de abajo resta.
     final change = tapY < height / 2
@@ -196,19 +212,25 @@ class _PlayerCounterState extends State<PlayerCounter>
 }
 
 /// Ancho que ocupa el historial a la derecha del panel: ahí los toques no
-/// cuentan.
-double _historyReserve(Look look) => switch (look.theme) {
-  AppTheme.original => 76,
-  AppTheme.modern => 72,
-  AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
-};
+/// cuentan. Sin historial, todo el panel cuenta.
+double _historyReserve(PanelStyle style) => !style.showHistory
+    ? 0
+    : switch (style.look.theme) {
+        AppTheme.original => 76,
+        AppTheme.modern => 72,
+        AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
+      };
 
-/// Margen que deja el número a la derecha para no pisar el historial.
-double _numberInset(Look look) => switch (look.theme) {
-  AppTheme.original => 76,
-  AppTheme.modern => 72,
-  AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
-};
+/// Margen que deja el número a la derecha para no pisar el historial. Sin
+/// historial, el mismo que a la izquierda, para que quede centrado (en el
+/// borde antiguo, solo el marco).
+double _numberInset(PanelStyle style) => !style.showHistory
+    ? (style.look.isClassic ? _kFrame : 0)
+    : switch (style.look.theme) {
+        AppTheme.original => 76,
+        AppTheme.modern => 72,
+        AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
+      };
 
 // Medidas de la carta tumbada del borde antiguo, en dp: el marco de arriba,
 // abajo y a la derecha, la franja del nombre a la izquierda, la de la línea
@@ -278,10 +300,18 @@ class _ClassicFrame extends StatelessWidget {
 /// caja de texto (el historial), y los bordes. Todo sale de la tira de marco
 /// de una carta de verdad ([CardFrame]), girada en las franjas horizontales.
 class _CardBands extends StatelessWidget {
-  const _CardBands({required this.frame, required this.alpha});
+  const _CardBands({
+    required this.frame,
+    required this.alpha,
+    required this.textBox,
+  });
 
   final CardFrame frame;
   final double alpha;
+
+  /// Con historial la carta lleva caja de texto y la línea de tipo que la
+  /// separa de la ilustración; sin él, solo el marco de fuera.
+  final bool textBox;
 
   // La tira es el borde derecho de la carta: su filo exterior (con la línea
   // clara) queda a la derecha. [turns] la gira de 90 en 90 grados.
@@ -353,13 +383,14 @@ class _CardBands extends StatelessWidget {
             width: _kFrame,
             child: _strip(),
           ),
-          Positioned(
-            right: _kFrame + _kTextBox,
-            top: 0,
-            bottom: 0,
-            width: _kTypeBand,
-            child: _strip(),
-          ),
+          if (textBox)
+            Positioned(
+              right: _kFrame + _kTextBox,
+              top: 0,
+              bottom: 0,
+              width: _kTypeBand,
+              child: _strip(),
+            ),
           Positioned(
             left: 0,
             right: 0,
@@ -379,7 +410,7 @@ class _CardBands extends StatelessWidget {
             left: _kNameBand,
             top: _kFrame,
             bottom: _kFrame,
-            right: _kFrame + _kTextBox + _kTypeBand,
+            right: textBox ? _kFrame + _kTextBox + _kTypeBand : _kFrame,
             child: const DecoratedBox(decoration: bevel),
           ),
         ],
@@ -416,7 +447,7 @@ class _Zone extends StatelessWidget {
     // empieza tras la franja del nombre.
     final double left = look.isClassic ? _kNameBand : 0;
     final background = style.background;
-    final inset = _numberInset(look);
+    final inset = _numberInset(style);
     // Las filas de botones quedan lejos de la barra en el borde nuevo, que
     // flota encima de los paneles.
     // En cristal la barra flota sobre el borde de dentro del panel, que es
@@ -465,19 +496,28 @@ class _Zone extends StatelessWidget {
               ),
             ),
           ),
-        // La mitad que suma se distingue de la que resta (salvo con «Línea»).
-        if (style.zoneMarks != ZoneMarks.line) _Halves(marks: style.zoneMarks),
+        // La mitad que suma se distingue de la que resta (salvo con «Línea»
+        // o «Nada»).
+        if (style.zoneMarks != ZoneMarks.line &&
+            style.zoneMarks != ZoneMarks.none)
+          _Halves(marks: style.zoneMarks),
         if (style.zoneMarks.hasLine)
           Padding(
             padding: EdgeInsets.only(left: left + 10, right: inset + 4),
             child: Center(child: _MidLine(classic: look.isClassic)),
           ),
-        if (look.isClassic) _CardBands(frame: frame, alpha: style.frameOpacity),
+        if (look.isClassic)
+          _CardBands(
+            frame: frame,
+            alpha: style.frameOpacity,
+            textBox: style.showHistory,
+          ),
         Padding(
           padding: EdgeInsets.fromLTRB(
             left + 12,
             plusTop + 50,
-            inset + 4,
+            // Sin historial, el mismo margen que a la izquierda.
+            inset + (style.showHistory ? 4 : 12),
             minusBottom + 50,
           ),
           child: Center(
@@ -547,14 +587,15 @@ class _Zone extends StatelessWidget {
             ),
           ),
         ),
-        _History(
-          player: player,
-          look: look,
-          color: color,
-          frame: frame,
-          alpha: style.historyOpacity,
-          controller: scrollController,
-        ),
+        if (style.showHistory)
+          _History(
+            player: player,
+            look: look,
+            color: color,
+            frame: frame,
+            alpha: style.historyOpacity,
+            controller: scrollController,
+          ),
       ],
     );
   }
@@ -630,7 +671,8 @@ class _Halves extends StatelessWidget {
         const Color(0xFF4ADE80).withValues(alpha: 0.18),
         const Color(0xFFF85050).withValues(alpha: 0.2),
       ),
-      ZoneMarks.line => (Colors.transparent, Colors.transparent),
+      ZoneMarks.line ||
+      ZoneMarks.none => (Colors.transparent, Colors.transparent),
     };
     // Sin stretch las cajas vacías se quedan con 0 de ancho y no se ve nada.
     return Column(

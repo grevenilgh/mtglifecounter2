@@ -69,7 +69,10 @@ enum ZoneMarks {
   line('Línea'),
 
   /// Tono suave y línea.
-  both('Tono y línea');
+  both('Tono y línea'),
+
+  /// Nada: el panel entero igual. Arriba sigue sumando y abajo restando.
+  none('Nada');
 
   const ZoneMarks(this.label);
 

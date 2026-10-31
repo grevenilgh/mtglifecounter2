@@ -51,6 +51,7 @@ class AppSettings extends ChangeNotifier {
     _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
     _animations = _prefs.getBool(_kAnimations) ?? true;
     _showStepper = _prefs.getBool(_kShowStepper) ?? false;
+    _showHistory = _prefs.getBool(_kShowHistory) ?? true;
   }
 
   static const _kSkin = 'skin';
@@ -78,6 +79,7 @@ class AppSettings extends ChangeNotifier {
   static const int maxRoundMinutes = 120;
   static const _kAnimations = 'animations';
   static const _kShowStepper = 'showStepper';
+  static const _kShowHistory = 'showHistory';
 
   /// Mínimos de las opacidades: por debajo el marco se pierde y los botones
   /// de la barra se dejan de ver sobre la imagen.
@@ -107,6 +109,7 @@ class AppSettings extends ChangeNotifier {
   late bool _timerVibrate;
   late bool _animations;
   late bool _showStepper;
+  late bool _showHistory;
 
   /// La skin en uso.
   Skin get skin => switch (_skinId) {
@@ -203,6 +206,10 @@ class AppSettings extends ChangeNotifier {
 
   /// Si la barra enseña la cantidad por toque (− 1 +). Sin ella cada toque cuenta 1.
   bool get showStepper => _showStepper;
+
+  /// Si los paneles enseñan el historial. Oculto se sigue apuntando, así que
+  /// al volver a enseñarlo sale entero.
+  bool get showHistory => _showHistory;
 
   /// El tema ya resuelto para pintar.
   Look get look => Look.of(_theme, _modernVariant);
@@ -321,6 +328,12 @@ class AppSettings extends ChangeNotifier {
   set showStepper(bool value) {
     _showStepper = value;
     _prefs.setBool(_kShowStepper, value);
+    notifyListeners();
+  }
+
+  set showHistory(bool value) {
+    _showHistory = value;
+    _prefs.setBool(_kShowHistory, value);
     notifyListeners();
   }
 
