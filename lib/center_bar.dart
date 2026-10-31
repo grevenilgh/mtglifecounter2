@@ -324,19 +324,18 @@ class CenterBar extends StatelessWidget {
 }
 
 /// Qué dibuja un símbolo de maná de la barra del borde antiguo.
-enum _Glyph { tap, life, icon }
+enum _Glyph { tap, icon }
 
 /// Los botones de la barra del borde antiguo, como los símbolos de coste de
-/// las cartas ([kManaPip]). Girar el panel es el símbolo de girar ({T}) y
-/// reiniciar, un coste genérico de 20: la vida a la que vuelve la partida
-/// (con el de enderezar, la misma flecha en espejo, no se distinguían). El
-/// resto lleva su icono.
+/// las cartas ([kManaPip]). Girar el panel es el símbolo de girar ({T});
+/// reiniciar lleva el icono de volver a empezar (con el de enderezar, la
+/// misma flecha en espejo, no se distinguían) y el resto, su icono.
 class _ManaSymbol extends StatelessWidget {
   const _ManaSymbol._(this.glyph, {this.icon});
 
   factory _ManaSymbol.forAction(IconData icon) => switch (icon) {
     Icons.swap_vert => const _ManaSymbol._(_Glyph.tap),
-    Icons.refresh => const _ManaSymbol._(_Glyph.life),
+    Icons.refresh => const _ManaSymbol._(_Glyph.icon, icon: Icons.restart_alt),
     _ => _ManaSymbol._(_Glyph.icon, icon: icon),
   };
 
@@ -355,19 +354,6 @@ class _ManaSymbol extends StatelessWidget {
         _Glyph.tap => CustomPaint(
           size: const Size.square(38),
           painter: _TapPainter(color: kManaInk),
-        ),
-        _Glyph.life => Text(
-          '20',
-          style: withFont(
-            'Vollkorn',
-            const TextStyle(
-              color: kManaInk,
-              fontSize: 19,
-              fontWeight: FontWeight.w900,
-              height: 1,
-              fontFeatures: kNumberFeatures,
-            ),
-          ),
         ),
       },
     );
