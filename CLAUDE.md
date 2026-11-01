@@ -21,6 +21,8 @@ flutter analyze                       # lints (flutter_lints 5)
 flutter test                          # tests (modelos, casos límite y la pantalla en 14 tamaños)
 flutter build apk --release           # APK de Android
 dart run flutter_launcher_icons       # regenerar el icono de AlicanteMTG desde assets/images/icono2.png
+flutter build web --release --base-href /mtglifecounter2/   # la web, como la publica GitHub Pages
+powershell -ExecutionPolicy Bypass -File scripts\web-icons.ps1   # regenerar los iconos de la web
 ```
 
 **Tests:** `test/widget_test.dart` (modelos y temporizador), `test/edge_cases_test.dart` (bordes del rango de vidas, datos guardados corruptos, reloj del móvil atrasado, toques rápidos) y `test/layout_test.dart`, que monta la app en 14 pantallas (del Fold cerrado al iPad Pro, más pantalla partida y horizontal) con los cuatro temas, valores extremos (−999, 999, burbuja de +1998, cronómetro de 100 h) y letra del sistema al 200 %, y comprueba que nada se desborda, que el número cabe entero, que la barra no tapa nada y que los toques suman y restan donde toca. Carga Roboto del SDK de Flutter para medir el texto de verdad (las de Google Fonts se sustituyen por las más parecidas). Con `--dart-define=SHOTS=<carpeta>` guarda una captura de cada caso y con `--dart-define=VERBOSE=true` enseña los desbordamientos enteros. Las pantallas con `supported: false` solo se exige que no se rompan.
@@ -30,6 +32,8 @@ SDK de Dart: `^3.8.1`.
 **Entorno en Windows:** `setup.bat` instala Git y Flutter (en `C:\src\flutter`, añadido al PATH del usuario) y ejecuta `pub get`. `setup-android.bat` añade el JDK 17 y el SDK de Android sin Android Studio. `setup.bat -Emulator` crea además el AVD `mtg_pixel`. La lógica está en `scripts/setup.ps1`.
 
 **Ejecutar:** `run.bat` abre la app en Chrome con una ventana de tamaño móvil. `run.bat android` la lanza en el móvil por USB o en el emulador. La lógica está en `scripts/run.ps1`. Los `.ps1` deben guardarse en UTF-8 **con BOM** y CRLF (ver `.gitattributes`), porque PowerShell 5.1 lee mal los acentos sin BOM.
+
+**Versión web (para iPhone):** iOS no deja instalar a mano como un APK, así que en iPhone se usa la web: se abre en Safari y con Compartir → «Añadir a pantalla de inicio» queda como una app. `.github/workflows/web.yml` la publica en GitHub Pages (https://grevenilgh.github.io/mtglifecounter2/) en cada push a `main`: pasa `flutter test` (si falla no publica y se queda la anterior), compila con `--base-href /<repo>/` y la sube. Hay que tenerlo activado en Settings → Pages → Source: «GitHub Actions», y el repo tiene que ser público para que Pages sea gratis. En la web el icono y el nombre no cambian con la skin: siempre son los genéricos de la personalizada, «Contador de vidas» (`ic_mesa`), dibujados por `scripts/web-icons.ps1` (System.Drawing) en `web/icons/`, con `apple-touch-icon.png` para el iPhone. El nombre y los colores están en `web/manifest.json` y `web/index.html`. Lo que se guarda (partida, ajustes y la foto de la skin personalizada en base64) va en el `localStorage` de ese navegador con el prefijo `flutter.`: cada móvil tiene lo suyo y la foto no sale del teléfono. En el iPhone la app de la pantalla de inicio tiene un almacenamiento aparte del de Safari, no se le borra por no usarla (a las webs de Safari, sí, a los 7 días) y se pierde al quitar el icono.
 
 ## Arquitectura
 
@@ -74,6 +78,8 @@ No hay gestor de estado: el estado compartido son `ChangeNotifier` de Flutter qu
 - Android usa Gradle 8.14.3, AGP 8.13.0 y Kotlin 2.3.20, que son los mínimos de Flutter 3.47. `gradle.properties` lleva `android.newDsl=false` y `android.builtInKotlin=false`, que puso el migrador de Flutter. Flutter avisa de que pronto exigirá AGP 9 y Gradle 9.1: habrá que migrar `build.gradle.kts` al DSL nuevo y quitar esos dos flags.
 - La versión release se firma con la clave de depuración. Sirve para instalar el APK a mano, pero no para Google Play.
 - El `applicationId` de Android es `mtg.premodern.alicante.lifecounter`, pero el bundle id de iOS sigue siendo `com.example.mtglifecounter`.
+- No hay app de iOS compilada: haría falta un Mac (o una máquina macOS en la nube) y la cuenta de desarrollador de Apple para TestFlight. Para iPhone está la web.
+- En la web: no se puede bloquear en vertical (Safari ignora la orientación del manifiesto); mantener la pantalla encendida en la app de la pantalla de inicio de iPhone no funcionaba antes de iOS 18.4; el acelerómetro del iPhone necesita que el usuario dé permiso; la barra de estado del iPhone va en negro y aparte (`apple-mobile-web-app-status-bar-style` = `black`), porque Flutter web no sabe dónde está la muesca y la taparía; y Safari deja unos 5 MB de `localStorage` por web: una foto enorme se vería, pero no se guardaría. Nada de esto se ha probado aún en un iPhone de verdad.
 
 ## Convenciones
 

@@ -1,11 +1,12 @@
 {
-    "name": "mtglifecounter",
-    "short_name": "mtglifecounter",
+    "name": "Contador de vidas",
+    "short_name": "Contador",
+    "lang": "es",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#1F2020",
+    "theme_color": "#1F2020",
+    "description": "Contador de vidas para partidas 1 contra 1 de Magic: The Gathering.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
