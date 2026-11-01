@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 /// https://claude.ai/artifact/QrwGhQdK3j9fqTt5Ed5pdU.
 enum AppTheme {
   /// La app tal como era: paneles de color sobre la imagen y barra gris.
-  original('De siempre'),
+  original('Original'),
 
   /// Borde nuevo: imagen grande, número blanco y barra flotante.
   modern('Borde nuevo'),
@@ -142,7 +142,9 @@ enum CardFrame {
     negro => const Color(0xFF909290),
     rojo => const Color(0xFFD98E7A),
     verde => const Color(0xFFADBF6E),
-    artefacto => const Color(0xFFC7A684),
+    // Sin doble de verdad: marrón grisáceo, que no se confunda con el rojo
+    // ni con el oro (el marrón claro de antes casi no se distinguía).
+    artefacto => const Color(0xFFB3A79A),
     tierra => const Color(0xFFB8AC98),
     oro => const Color(0xFFD9BC5E),
   };
@@ -155,7 +157,7 @@ enum CardFrame {
     negro => const Color(0xFF4E5560),
     rojo => const Color(0xFFA63340),
     verde => const Color(0xFF8FA24A),
-    artefacto => const Color(0xFF7A5634),
+    artefacto => const Color(0xFF6B5D50),
     tierra => const Color(0xFF6E6252),
     oro => const Color(0xFF94701E),
   };
@@ -368,6 +370,18 @@ const Color kInk = Color(0xFF2A1D10);
 /// Los botones del borde antiguo, como un símbolo de coste de maná
 /// genérico: el redondel gris de las cartas, con el dibujo en [kManaInk] y
 /// la sombra negra desplazada abajo a la izquierda de la impresión.
+/// Lo que mide un símbolo de maná de la barra del borde antiguo: con su
+/// sombra cabe en la caja de la tierra doble sin tocar el reborde.
+const double kManaPipSize = 32;
+
+/// Lo mismo, alargado: el reloj y la cantidad por toque de esa barra.
+const BoxDecoration kManaPill = BoxDecoration(
+  color: kManaGray,
+  borderRadius: BorderRadius.all(Radius.circular(kManaPipSize / 2)),
+  border: Border.fromBorderSide(BorderSide(color: Color(0x66000000))),
+  boxShadow: [BoxShadow(color: Color(0xFF0B0705), offset: Offset(-1.5, 2.5))],
+);
+
 const BoxDecoration kManaPip = BoxDecoration(
   shape: BoxShape.circle,
   color: kManaGray,

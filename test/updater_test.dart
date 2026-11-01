@@ -195,12 +195,10 @@ void main() {
         )
         .show;
 
-    expect(blinking('Ajustes'), isFalse);
     await tester.runAsync(updater.check);
     await tester.pump();
-    expect(blinking('Ajustes'), isTrue);
-    // Solo el engranaje: el resto de botones no llevan el aviso.
-    expect(blinking('Reiniciar partida'), isFalse);
+    // En la pantalla principal no sale: solo en la ⓘ de Ajustes.
+    expect(find.byType(UpdateBadge), findsNothing);
 
     // El parpadeo no para, así que no se puede esperar a que se calme.
     await tester.tap(find.byTooltip('Ajustes'));

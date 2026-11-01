@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
+import 'package:mtglifecounter/look.dart';
 
 class NumberStepper extends StatefulWidget {
   final int initialValue;
@@ -12,6 +13,11 @@ class NumberStepper extends StatefulWidget {
   /// Versión pequeña para las barras flotantes, más bajas que la de siempre.
   final bool compact;
 
+  /// Como los símbolos de maná del borde antiguo: tan bajo como ellos, con
+  /// los signos sueltos y la cifra en Vollkorn. La pastilla gris la pone la
+  /// barra.
+  final bool mana;
+
   const NumberStepper({
     super.key,
     this.initialValue = 1,
@@ -19,6 +25,7 @@ class NumberStepper extends StatefulWidget {
     required this.resetNotifier,
     this.color = Colors.white,
     this.compact = false,
+    this.mana = false,
   });
 
   @override
@@ -77,6 +84,7 @@ class _NumberStepperState extends State<NumberStepper> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.mana) return _mana();
     final iconSize = widget.compact ? 26.0 : 40.0;
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -106,6 +114,60 @@ class _NumberStepperState extends State<NumberStepper> {
           visualDensity: widget.compact ? VisualDensity.compact : null,
           onPressed: _currentValue < 99 ? _increment : null,
           onLongPress: _currentValue < 90 ? () => _increment(10) : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _mana() {
+    Widget sign(
+      IconData icon,
+      VoidCallback? onTap,
+      VoidCallback? onLongPress,
+    ) => InkResponse(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      radius: 18,
+      child: SizedBox(
+        width: 30,
+        height: kManaPipSize,
+        child: Icon(
+          icon,
+          size: 20,
+          color: onTap == null ? kManaInk.withAlpha(80) : kManaInk,
+        ),
+      ),
+    );
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        sign(
+          Icons.remove,
+          _currentValue > 1 ? _decrement : null,
+          _currentValue > 10 ? () => _decrement(10) : null,
+        ),
+        SizedBox(
+          width: 30,
+          child: AutoSizeText(
+            '$_currentValue',
+            style: withFont(
+              'Vollkorn',
+              const TextStyle(
+                color: kManaInk,
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                fontFeatures: kNumberFeatures,
+              ),
+            ),
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            minFontSize: 12,
+          ),
+        ),
+        sign(
+          Icons.add,
+          _currentValue < 99 ? _increment : null,
+          _currentValue < 90 ? () => _increment(10) : null,
         ),
       ],
     );

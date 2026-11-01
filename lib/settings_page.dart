@@ -6,7 +6,9 @@ import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
 import 'package:mtglifecounter/counter_layout.dart';
 import 'package:mtglifecounter/game_state.dart';
+import 'package:mtglifecounter/hold_to_repeat.dart';
 import 'package:mtglifecounter/look.dart';
+import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
 import 'package:mtglifecounter/timer_view.dart';
@@ -36,8 +38,8 @@ const List<Color> kSwatches = [
 ];
 
 /// Los temas tal como se eligen: el borde nuevo sale ya con su variante.
-const _themeChoices = [
-  ('De siempre', AppTheme.original, null),
+const kThemeChoices = [
+  ('Original', AppTheme.original, null),
   ('Cristal', AppTheme.modern, ModernVariant.glass),
   ('Tarjetas', AppTheme.modern, ModernVariant.cards),
   ('Old Border', AppTheme.classic, null),
@@ -124,77 +126,104 @@ class SettingsPage extends StatelessWidget {
   Widget _design(BuildContext context) {
     final custom = settings.customSkin;
     // El tema y la miniatura van fijos arriba: así se ve el resultado de
-    // todo lo que se toca más abajo sin salir de Ajustes.
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 104,
-                child: _Preview(settings: settings, timer: timer),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.style_outlined, color: kAccent, size: 20),
-                        SizedBox(width: 10),
-                        Text(
-                          'Tema',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    _Choices(
-                      children: [
-                        for (final (label, theme, variant) in _themeChoices)
-                          _Chip(
-                            label: label,
-                            selected:
-                                settings.theme == theme &&
-                                (variant == null ||
-                                    settings.modernVariant == variant),
-                            onTap: () {
-                              if (variant != null) {
-                                settings.modernVariant = variant;
-                              }
-                              settings.theme = theme;
-                            },
-                          ),
-                      ],
-                    ),
-                    if (settings.theme == AppTheme.classic)
-                      const _Help(
-                        'Cada jugador es una carta antigua tumbada, con el '
-                        'marco que mejor va con su color.',
-                      ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-        const Divider(height: 1, color: Color(0xFF2C2C2E)),
-        Expanded(child: _designOptions(context, custom)),
-      ],
+    // todo lo que se toca más abajo sin salir de Ajustes. Con poca pantalla
+    // o la letra del sistema muy grande no cabrían (en el Old Border, con su
+    // explicación, se desbordaba): entonces suben con lo demás.
+    final textScale = MediaQuery.textScalerOf(context).scale(1);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxHeight < 520 || textScale > 1.3) {
+          return _designOptions(
+            context,
+            custom,
+            header: _designHeader(inList: true),
+          );
+        }
+        return Column(
+          children: [
+            _designHeader(),
+            const Divider(height: 1, color: Color(0xFF2C2C2E)),
+            Expanded(child: _designOptions(context, custom)),
+          ],
+        );
+      },
     );
   }
 
-  Widget _designOptions(BuildContext context, Skin custom) {
+  Widget _designHeader({bool inList = false}) {
+    return Padding(
+      padding: inList
+          ? const EdgeInsets.only(bottom: 12)
+          : const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 104,
+            child: CounterPreview(settings: settings, timer: timer),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.style_outlined, color: kAccent, size: 20),
+                    SizedBox(width: 10),
+                    Text(
+                      'Tema',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 17,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _Choices(
+                  children: [
+                    for (final (label, theme, variant) in kThemeChoices)
+                      SettingsChip(
+                        label: label,
+                        selected:
+                            settings.theme == theme &&
+                            (variant == null ||
+                                settings.modernVariant == variant),
+                        onTap: () {
+                          if (variant != null) {
+                            settings.modernVariant = variant;
+                          }
+                          settings.theme = theme;
+                        },
+                      ),
+                  ],
+                ),
+                if (settings.theme == AppTheme.classic)
+                  const _Help(
+                    'Cada jugador es una carta antigua tumbada, con el '
+                    'marco que mejor va con su color.',
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Las opciones de diseño. Con [header], el tema y la miniatura van al
+  /// principio de la lista en vez de fijos.
+  Widget _designOptions(BuildContext context, Skin custom, {Widget? header}) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
       children: [
+        if (header != null) ...[
+          header,
+          const Divider(height: 1, color: Color(0xFF2C2C2E)),
+          const SizedBox(height: 16),
+        ],
         _Group(
           title: 'Skin',
           icon: Icons.color_lens_outlined,
@@ -208,7 +237,7 @@ class SettingsPage extends StatelessWidget {
                     for (final (j, skin) in pair.indexed) ...[
                       if (j > 0) const SizedBox(width: 10),
                       Expanded(
-                        child: _SkinCard(
+                        child: SkinCard(
                           skin: skin,
                           image: settings.backgroundOf(skin),
                           selected: settings.skinId == skin.id,
@@ -249,14 +278,14 @@ class SettingsPage extends StatelessWidget {
                 children: [
                   for (final background in SkinBackground.values)
                     if (background != SkinBackground.photo)
-                      _Chip(
+                      SettingsChip(
                         label: background.label,
                         selected: custom.background == background,
                         onTap: () => settings.customSkin = custom.copyWith(
                           background: background,
                         ),
                       ),
-                  _Chip(
+                  SettingsChip(
                     label: settings.backgroundPhoto == null
                         ? 'Elegir imagen…'
                         : SkinBackground.photo.label,
@@ -306,7 +335,7 @@ class SettingsPage extends StatelessWidget {
             _Choices(
               children: [
                 for (final mode in BackgroundMode.values)
-                  _Chip(
+                  SettingsChip(
                     label: mode.label,
                     selected: settings.backgroundMode == mode,
                     onTap: () => settings.backgroundMode = mode,
@@ -331,7 +360,7 @@ class SettingsPage extends StatelessWidget {
                   ('Suave', 60),
                   ('Tenue', 30),
                 ])
-                  _Chip(
+                  SettingsChip(
                     label: '$name · $value %',
                     selected: settings.imageOpacity == value,
                     onTap: () => settings.imageOpacity = value,
@@ -342,7 +371,7 @@ class SettingsPage extends StatelessWidget {
               'Cuanto más baja, más se ve el color del jugador y mejor se lee '
               'el número.',
             ),
-            _SwitchRow(
+            SettingsSwitch(
               title: 'Foco en el número',
               subtitle: 'Oscurece la imagen solo detrás del número.',
               value: settings.focus,
@@ -358,14 +387,14 @@ class SettingsPage extends StatelessWidget {
             _Choices(
               children: [
                 for (final marks in ZoneMarks.values)
-                  _Chip(
+                  SettingsChip(
                     label: marks.label,
                     selected: settings.zoneMarks == marks,
                     onTap: () => settings.zoneMarks = marks,
                   ),
               ],
             ),
-            _SwitchRow(
+            SettingsSwitch(
               title: 'Animaciones al cambiar vidas',
               subtitle:
                   'Al perder, el número se sacude y el borde se tiñe de rojo; '
@@ -460,23 +489,33 @@ class SettingsPage extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
       children: [
+        // Lo que se ve en la pantalla de la partida, en el orden de la
+        // bienvenida.
         _Group(
-          title: 'Barra central',
-          icon: Icons.view_agenda_outlined,
+          title: 'En pantalla',
+          icon: Icons.visibility_outlined,
           children: [
-            _SwitchRow(
+            SettingsSwitch(
+              title: 'Historial de vidas',
+              subtitle:
+                  'Oculto se sigue apuntando: al volver a enseñarlo sale '
+                  'entero. Sin él, el número se centra en el panel.',
+              value: settings.showHistory,
+              onChanged: (v) => settings.showHistory = v,
+            ),
+            SettingsSwitch(
+              title: 'Temporizador de ronda',
+              subtitle: 'El reloj en la barra.',
+              value: settings.showTimer,
+              onChanged: (v) => settings.showTimer = v,
+            ),
+            SettingsSwitch(
               title: 'Cantidad por toque (− 1 +)',
               subtitle:
                   'Para sumar o restar más de una vida de golpe. Sin ella, '
                   'cada toque cuenta 1.',
               value: settings.showStepper,
               onChanged: (v) => settings.showStepper = v,
-            ),
-            _SwitchRow(
-              title: 'Temporizador de ronda',
-              subtitle: 'El reloj en la barra.',
-              value: settings.showTimer,
-              onChanged: (v) => settings.showTimer = v,
             ),
           ],
         ),
@@ -487,7 +526,7 @@ class SettingsPage extends StatelessWidget {
             _Choices(
               children: [
                 for (final mode in TimerMode.values)
-                  _Chip(
+                  SettingsChip(
                     label: mode.label,
                     selected: settings.timerMode == mode,
                     onTap: () => settings.timerMode = mode,
@@ -520,14 +559,22 @@ class SettingsPage extends StatelessWidget {
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Cinco minutos menos',
-                    color: Colors.white,
-                    onPressed:
-                        settings.roundMinutes > AppSettings.minRoundMinutes
-                        ? () => settings.roundMinutes -= 5
-                        : null,
-                    icon: const Icon(Icons.remove_circle_outline),
+                  Builder(
+                    builder: (context) {
+                      final step =
+                          settings.roundMinutes > AppSettings.minRoundMinutes
+                          ? () => settings.roundMinutes -= 1
+                          : null;
+                      return HoldToRepeat(
+                        onStep: step,
+                        label: 'Un minuto menos',
+                        child: IconButton(
+                          color: Colors.white,
+                          onPressed: step,
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                      );
+                    },
                   ),
                   SizedBox(
                     width: 58,
@@ -540,24 +587,32 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Cinco minutos más',
-                    color: Colors.white,
-                    onPressed:
-                        settings.roundMinutes < AppSettings.maxRoundMinutes
-                        ? () => settings.roundMinutes += 5
-                        : null,
-                    icon: const Icon(Icons.add_circle_outline),
+                  Builder(
+                    builder: (context) {
+                      final step =
+                          settings.roundMinutes < AppSettings.maxRoundMinutes
+                          ? () => settings.roundMinutes += 1
+                          : null;
+                      return HoldToRepeat(
+                        onStep: step,
+                        label: 'Un minuto más',
+                        child: IconButton(
+                          color: Colors.white,
+                          onPressed: step,
+                          icon: const Icon(Icons.add_circle_outline),
+                        ),
+                      );
+                    },
                   ),
                 ],
               ),
-              _SwitchRow(
+              SettingsSwitch(
                 title: 'Avisar a falta de 5 minutos',
                 subtitle: 'El reloj de la barra se pone ámbar.',
                 value: settings.timerWarning,
                 onChanged: (v) => settings.timerWarning = v,
               ),
-              _SwitchRow(
+              SettingsSwitch(
                 title: 'Vibrar al acabar el tiempo',
                 subtitle: 'Un aviso que se nota con el móvil en la mesa.',
                 value: settings.timerVibrate,
@@ -570,7 +625,7 @@ class SettingsPage extends StatelessWidget {
           title: 'Partida',
           icon: Icons.save_outlined,
           children: [
-            _SwitchRow(
+            SettingsSwitch(
               title: 'Recordar la partida',
               subtitle:
                   'Si se cierra la app, las vidas y el historial siguen igual '
@@ -578,15 +633,7 @@ class SettingsPage extends StatelessWidget {
               value: settings.rememberGame,
               onChanged: (v) => settings.rememberGame = v,
             ),
-            _SwitchRow(
-              title: 'Historial de vidas',
-              subtitle:
-                  'Oculto se sigue apuntando: al volver a enseñarlo sale '
-                  'entero. Sin él, el número se centra en el panel.',
-              value: settings.showHistory,
-              onChanged: (v) => settings.showHistory = v,
-            ),
-            _SwitchRow(
+            SettingsSwitch(
               title: 'Mantener la pantalla encendida',
               subtitle: 'Para que no se apague con el móvil en la mesa.',
               value: settings.keepScreenOn,
@@ -757,18 +804,23 @@ List<List<T>> _pairs<T>(List<T> items) => [
     items.sublist(i, (i + 2).clamp(0, items.length)),
 ];
 
-class _SkinCard extends StatelessWidget {
-  const _SkinCard({
+class SkinCard extends StatelessWidget {
+  const SkinCard({
+    super.key,
     required this.skin,
     required this.image,
     required this.selected,
     required this.onTap,
+    this.imageHeight = 84,
   });
 
   final Skin skin;
   final ImageProvider? image;
   final bool selected;
   final VoidCallback onTap;
+
+  /// El alto de la muestra; en la bienvenida va más baja.
+  final double imageHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -795,7 +847,7 @@ class _SkinCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
-                  height: 84,
+                  height: imageHeight,
                   clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.black,
@@ -957,8 +1009,9 @@ class _Swatch extends StatelessWidget {
   }
 }
 
-class _Chip extends StatelessWidget {
-  const _Chip({
+class SettingsChip extends StatelessWidget {
+  const SettingsChip({
+    super.key,
     required this.label,
     required this.selected,
     required this.onTap,
@@ -987,16 +1040,19 @@ class _Chip extends StatelessWidget {
   }
 }
 
-class _SwitchRow extends StatelessWidget {
-  const _SwitchRow({
+class SettingsSwitch extends StatelessWidget {
+  const SettingsSwitch({
+    super.key,
     required this.title,
-    required this.subtitle,
+    this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
   final String title;
-  final String subtitle;
+
+  /// La explicación de debajo; sin ella la fila es más baja.
+  final String? subtitle;
   final bool value;
   final ValueChanged<bool> onChanged;
 
@@ -1005,7 +1061,9 @@ class _SwitchRow extends StatelessWidget {
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
       title: Text(title, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(subtitle, style: const TextStyle(color: kMutedText)),
+      subtitle: subtitle == null
+          ? null
+          : Text(subtitle!, style: const TextStyle(color: kMutedText)),
       value: value,
       onChanged: onChanged,
       activeThumbColor: Colors.white,
@@ -1016,21 +1074,26 @@ class _SwitchRow extends StatelessWidget {
 
 /// Miniatura del contador con los ajustes de ahora y una partida de ejemplo.
 /// Es la pantalla de verdad en pequeño, así que no responde a toques.
-class _Preview extends StatefulWidget {
-  const _Preview({required this.settings, required this.timer});
+class CounterPreview extends StatefulWidget {
+  const CounterPreview({
+    super.key,
+    required this.settings,
+    required this.timer,
+  });
 
   final AppSettings settings;
   final RoundTimer timer;
 
   @override
-  State<_Preview> createState() => _PreviewState();
+  State<CounterPreview> createState() => _CounterPreviewState();
 }
 
-class _PreviewState extends State<_Preview> {
+class _CounterPreviewState extends State<CounterPreview> {
   // Tamaño de pantalla de un móvil normal; luego se encoge a la miniatura.
   static const Size _screen = Size(412, 880);
 
   final GameState _game = GameState();
+  final ValueNotifier<bool> _reset = ValueNotifier<bool>(false);
 
   @override
   void initState() {
@@ -1051,6 +1114,7 @@ class _PreviewState extends State<_Preview> {
   @override
   void dispose() {
     _game.dispose();
+    _reset.dispose();
     super.dispose();
   }
 
@@ -1074,6 +1138,16 @@ class _PreviewState extends State<_Preview> {
               look: look,
               warningEnabled: settings.timerWarning,
               onTap: none,
+            )
+          : null,
+      // La cantidad por toque, si está activada: no se toca, solo se ve.
+      stepper: settings.showStepper
+          ? (color, compact, mana) => NumberStepper(
+              resetNotifier: _reset,
+              color: color,
+              compact: compact,
+              mana: mana,
+              onChanged: (_) {},
             )
           : null,
       trailing: [

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mtglifecounter/app_icon.dart';
@@ -13,6 +14,7 @@ import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/updater.dart';
+import 'package:mtglifecounter/welcome_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
@@ -61,6 +63,9 @@ Future<void> main() async {
       storage: storage,
       timer: timer,
       updater: updater,
+      // Con --dart-define=WELCOME=true sale siempre, para probarla.
+      showWelcome:
+          !settings.welcomeDone || const bool.fromEnvironment('WELCOME'),
     ),
   );
 }
@@ -73,6 +78,7 @@ class MyApp extends StatelessWidget {
     required this.storage,
     required this.timer,
     this.updater,
+    this.showWelcome = false,
   });
 
   final AppSettings settings;
@@ -82,6 +88,9 @@ class MyApp extends StatelessWidget {
 
   /// Busca versiones nuevas; null fuera de Android y en los tests.
   final Updater? updater;
+
+  /// Si sale la bienvenida de la primera vez ([WelcomePage]) al abrir.
+  final bool showWelcome;
 
   @override
   Widget build(BuildContext context) {
@@ -100,6 +109,7 @@ class MyApp extends StatelessWidget {
         storage: storage,
         timer: timer,
         updater: updater,
+        showWelcome: showWelcome,
       ),
     );
   }
@@ -113,6 +123,7 @@ class MyHomePage extends StatefulWidget {
     required this.storage,
     required this.timer,
     this.updater,
+    this.showWelcome = false,
   });
 
   final AppSettings settings;
@@ -122,6 +133,9 @@ class MyHomePage extends StatefulWidget {
 
   /// Busca versiones nuevas; null fuera de Android y en los tests.
   final Updater? updater;
+
+  /// Si sale la bienvenida de la primera vez ([WelcomePage]) al abrir.
+  final bool showWelcome;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -140,6 +154,15 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     widget.settings.addListener(_syncSettings);
     _syncSettings();
     widget.timer.onFinished = _onTimeUp;
+    if (widget.showWelcome) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => showWelcome(
+          context,
+          settings: widget.settings,
+          timer: widget.timer,
+        ),
+      );
+    }
   }
 
   @override
@@ -171,6 +194,21 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       _iconSkin = settings.skinId;
       setAppIcon(settings.skinId);
     }
+  }
+
+  // En el navegador, la pantalla encendida solo se concede tras un toque (en
+  // el iPhone, sobre todo) y se pierde al cambiar de app: se vuelve a pedir
+  // al tocar, como mucho cada medio minuto.
+  DateTime? _wakelockAsked;
+  void _retryWakelock() {
+    if (!kIsWeb) return;
+    final now = DateTime.now();
+    final last = _wakelockAsked;
+    if (last != null && now.difference(last) < const Duration(seconds: 30)) {
+      return;
+    }
+    _wakelockAsked = now;
+    widget.settings.applyWakelock();
   }
 
   // Al acabar la ronda el móvil vibra tres veces, para notarlo en la mesa.
@@ -255,7 +293,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     final settings = widget.settings;
     final game = widget.game;
     return ListenableBuilder(
-      listenable: Listenable.merge([settings, game, ?widget.updater]),
+      listenable: Listenable.merge([settings, game]),
       builder: (context, _) {
         final look = settings.look;
         // Sin la cantidad por toque en la barra, cada toque cuenta 1.
@@ -286,11 +324,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                 )
               : null,
           stepper: settings.showStepper
-              ? (color, compact) => NumberStepper(
+              ? (color, compact, mana) => NumberStepper(
                   resetNotifier: _resetNotifier,
                   initialValue: _lifeChangeAmount,
                   color: color,
                   compact: compact,
+                  mana: mana,
                   onChanged: (newValue) {
                     setState(() {
                       _lifeChangeAmount = newValue;
@@ -305,22 +344,20 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               'Sorteos: moneda, dado y duelo',
               () => showDraws(context, flipTop: game.rotated),
             ),
-            BarAction(
-              Icons.settings_outlined,
-              'Ajustes',
-              _openSettings,
-              badge: widget.updater?.available != null,
-            ),
+            BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
           ],
         );
         return Scaffold(
           backgroundColor: Colors.black,
-          body: CounterLayout(
-            settings: settings,
-            game: game,
-            bar: bar,
-            lifeChangeAmount: amount,
-            onLifeChanged: _onLifeChanged,
+          body: Listener(
+            onPointerUp: (_) => _retryWakelock(),
+            child: CounterLayout(
+              settings: settings,
+              game: game,
+              bar: bar,
+              lifeChangeAmount: amount,
+              onLifeChanged: _onLifeChanged,
+            ),
           ),
         );
       },

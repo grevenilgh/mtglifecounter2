@@ -68,7 +68,7 @@ const List<Screen> screens = [
 
 /// Los cuatro temas que se eligen en Ajustes.
 const List<(String, AppTheme, ModernVariant)> themes = [
-  ('De siempre', AppTheme.original, ModernVariant.glass),
+  ('Original', AppTheme.original, ModernVariant.glass),
   ('Cristal', AppTheme.modern, ModernVariant.glass),
   ('Tarjetas', AppTheme.modern, ModernVariant.cards),
   ('Old Border', AppTheme.classic, ModernVariant.glass),
@@ -527,7 +527,9 @@ void main() {
             app = await pumpApp(
               tester,
               screen,
-              themes.first,
+              // Con la letra grande, el Old Border: su explicación bajo los
+              // temas hacía que la cabecera de Ajustes no cupiera.
+              textScale == 1 ? themes.first : themes.last,
               scenario: scenario,
             );
           });

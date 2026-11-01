@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/app_settings.dart';
+import 'package:mtglifecounter/hold_to_repeat.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
@@ -83,12 +84,14 @@ class _TimerButtonState extends State<TimerButton>
             child: FadeTransition(
               opacity: Tween<double>(begin: 1, end: 0.55).animate(_blink),
               child: Container(
-                height: classic ? 38 : 36,
+                height: classic ? kManaPipSize : 36,
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 padding: const EdgeInsets.symmetric(horizontal: 10),
                 decoration: BoxDecoration(
                   color: background,
-                  borderRadius: BorderRadius.circular(classic ? 19 : 12),
+                  borderRadius: BorderRadius.circular(
+                    classic ? kManaPipSize / 2 : 12,
+                  ),
                   border: paused
                       ? Border.all(
                           color: foreground.withValues(alpha: 0.6),
@@ -122,7 +125,7 @@ class _TimerButtonState extends State<TimerButton>
                         classic ? 'Vollkorn' : null,
                         TextStyle(
                           color: foreground,
-                          fontSize: classic ? 18 : 16,
+                          fontSize: 16,
                           fontWeight: FontWeight.w700,
                           fontFeatures: kNumberFeatures,
                         ),
@@ -233,13 +236,22 @@ Future<void> showTimerSheet(
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      IconButton.filledTonal(
-                        tooltip: 'Cinco minutos menos',
-                        onPressed:
-                            settings.roundMinutes > AppSettings.minRoundMinutes
-                            ? () => settings.roundMinutes -= 5
-                            : null,
-                        icon: const Icon(Icons.remove),
+                      Builder(
+                        builder: (context) {
+                          final step =
+                              settings.roundMinutes >
+                                  AppSettings.minRoundMinutes
+                              ? () => settings.roundMinutes -= 1
+                              : null;
+                          return HoldToRepeat(
+                            onStep: step,
+                            label: 'Un minuto menos',
+                            child: IconButton.filledTonal(
+                              onPressed: step,
+                              icon: const Icon(Icons.remove),
+                            ),
+                          );
+                        },
                       ),
                       SizedBox(
                         width: 110,
@@ -253,13 +265,22 @@ Future<void> showTimerSheet(
                           ),
                         ),
                       ),
-                      IconButton.filledTonal(
-                        tooltip: 'Cinco minutos más',
-                        onPressed:
-                            settings.roundMinutes < AppSettings.maxRoundMinutes
-                            ? () => settings.roundMinutes += 5
-                            : null,
-                        icon: const Icon(Icons.add),
+                      Builder(
+                        builder: (context) {
+                          final step =
+                              settings.roundMinutes <
+                                  AppSettings.maxRoundMinutes
+                              ? () => settings.roundMinutes += 1
+                              : null;
+                          return HoldToRepeat(
+                            onStep: step,
+                            label: 'Un minuto más',
+                            child: IconButton.filledTonal(
+                              onPressed: step,
+                              icon: const Icon(Icons.add),
+                            ),
+                          );
+                        },
                       ),
                     ],
                   ),

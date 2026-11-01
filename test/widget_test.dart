@@ -4,6 +4,7 @@ import 'package:mtglifecounter/about_page.dart';
 import 'package:mtglifecounter/app_icon.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/game_state.dart';
+import 'package:mtglifecounter/hold_to_repeat.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/main.dart';
 import 'package:mtglifecounter/player_counter.dart';
@@ -477,5 +478,61 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
     await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('los minutos van de uno en uno y siguen al mantener pulsado', (
+    tester,
+  ) async {
+    var minutes = 50;
+    late StateSetter refresh;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              refresh = setState;
+              final step = minutes < 60
+                  ? () => setState(() => minutes++)
+                  : null;
+              return HoldToRepeat(
+                onStep: step,
+                label: 'Un minuto más',
+                child: IconButton(onPressed: step, icon: const Icon(Icons.add)),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    final button = find.byType(IconButton);
+
+    // Un toque, un minuto.
+    await tester.tap(button);
+    await tester.pump();
+    expect(minutes, 51);
+
+    // Mantenido: al medio segundo empieza y sigue mientras no se suelte.
+    final gesture = await tester.startGesture(tester.getCenter(button));
+    await tester.pump(const Duration(milliseconds: 520));
+    expect(minutes, 52);
+    for (var i = 0; i < 3; i++) {
+      await tester.pump(HoldToRepeat.slow);
+    }
+    expect(minutes, 55);
+    await gesture.up();
+    await tester.pump(const Duration(seconds: 1));
+    // Al soltar para, y no suma el toque de más.
+    expect(minutes, 55);
+
+    // Se para solo en el límite.
+    refresh(() => minutes = 58);
+    final again = await tester.startGesture(tester.getCenter(button));
+    // A pasos cortos, para que entre medias se redibuje como en el móvil.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(HoldToRepeat.fast);
+    }
+    expect(minutes, 60);
+    await again.up();
+    await tester.pump();
   });
 }

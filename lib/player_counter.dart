@@ -319,7 +319,6 @@ class _CardBands extends StatelessWidget {
     Widget image = Image.asset(
       frame.asset,
       fit: BoxFit.cover,
-      opacity: AlwaysStoppedAnimation(alpha),
       filterQuality: FilterQuality.medium,
     );
     if (flip) image = Transform.flip(flipX: true, child: image);
@@ -337,7 +336,6 @@ class _CardBands extends StatelessWidget {
       final image = Image.asset(
         asset,
         fit: BoxFit.cover,
-        opacity: AlwaysStoppedAnimation(alpha),
         filterQuality: FilterQuality.medium,
       );
       return Expanded(
@@ -369,41 +367,11 @@ class _CardBands extends StatelessWidget {
     return IgnorePointer(
       child: Stack(
         children: [
-          Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: _kNameBand,
-            child: _strip(flip: true),
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            bottom: 0,
-            width: _kFrame,
-            child: _strip(),
-          ),
-          if (textBox)
-            Positioned(
-              right: _kFrame + _kTextBox,
-              top: 0,
-              bottom: 0,
-              width: _kTypeBand,
-              child: _strip(),
-            ),
-          Positioned(
-            left: 0,
-            right: 0,
-            top: 0,
-            height: _kFrame,
-            child: _horizontal(turns: 3),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: _kFrame,
-            child: _horizontal(turns: 1),
+          // Las tiras se pintan opacas y se transparentan juntas: cada una
+          // por su lado, en las esquinas se juntaban dos y salían de otro
+          // tono.
+          Positioned.fill(
+            child: Opacity(opacity: alpha, child: _frame()),
           ),
           // La ventana de la ilustración, hundida en el marco.
           Positioned(
@@ -415,6 +383,49 @@ class _CardBands extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _frame() {
+    return Stack(
+      children: [
+        Positioned(
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: _kNameBand,
+          child: _strip(flip: true),
+        ),
+        Positioned(
+          right: 0,
+          top: 0,
+          bottom: 0,
+          width: _kFrame,
+          child: _strip(),
+        ),
+        if (textBox)
+          Positioned(
+            right: _kFrame + _kTextBox,
+            top: 0,
+            bottom: 0,
+            width: _kTypeBand,
+            child: _strip(),
+          ),
+        Positioned(
+          left: 0,
+          right: 0,
+          top: 0,
+          height: _kFrame,
+          child: _horizontal(turns: 3),
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: _kFrame,
+          child: _horizontal(turns: 1),
+        ),
+      ],
     );
   }
 }

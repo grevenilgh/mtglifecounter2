@@ -43,6 +43,7 @@ class AppSettings extends ChangeNotifier {
     _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
     _showStepper = _prefs.getBool(_kShowStepper) ?? false;
     _showHistory = _prefs.getBool(_kShowHistory) ?? true;
+    _welcomeDone = _prefs.getBool(_kWelcomeDone) ?? false;
   }
 
   // Lo que vuelve a lo de por defecto con [resetLook].
@@ -106,6 +107,7 @@ class AppSettings extends ChangeNotifier {
   static const _kAnimations = 'animations';
   static const _kShowStepper = 'showStepper';
   static const _kShowHistory = 'showHistory';
+  static const _kWelcomeDone = 'welcomeDone';
 
   /// Mínimos de las opacidades: por debajo el marco se pierde y los botones
   /// de la barra se dejan de ver sobre la imagen.
@@ -136,6 +138,7 @@ class AppSettings extends ChangeNotifier {
   late bool _animations;
   late bool _showStepper;
   late bool _showHistory;
+  late bool _welcomeDone;
 
   /// La skin en uso.
   Skin get skin => switch (_skinId) {
@@ -207,8 +210,11 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Aplica "mantener la pantalla encendida" según el ajuste guardado.
-  void applyWakelock() => WakelockPlus.toggle(enable: _keepScreenOn);
+  /// Aplica "mantener la pantalla encendida" según el ajuste guardado. En el
+  /// navegador puede negarse (Safari solo lo deja después de un toque): no
+  /// es un error, se vuelve a pedir al tocar ([MyHomePage]).
+  Future<void> applyWakelock() =>
+      WakelockPlus.toggle(enable: _keepScreenOn).catchError((Object _) {});
 
   AppTheme get theme => _theme;
   ModernVariant get modernVariant => _modernVariant;
@@ -236,6 +242,10 @@ class AppSettings extends ChangeNotifier {
   /// Si los paneles enseñan el historial. Oculto se sigue apuntando, así que
   /// al volver a enseñarlo sale entero.
   bool get showHistory => _showHistory;
+
+  /// Si ya se vio la bienvenida de la primera vez ([WelcomePage]). Se guarda
+  /// en el móvil: no vuelve a salir al abrir la app ni al actualizarla.
+  bool get welcomeDone => _welcomeDone;
 
   /// El tema ya resuelto para pintar.
   Look get look => Look.of(_theme, _modernVariant);
@@ -361,6 +371,11 @@ class AppSettings extends ChangeNotifier {
     _showHistory = value;
     _prefs.setBool(_kShowHistory, value);
     notifyListeners();
+  }
+
+  set welcomeDone(bool value) {
+    _welcomeDone = value;
+    _prefs.setBool(_kWelcomeDone, value);
   }
 
   // Al cambiar de tema, el foco vuelve a lo que trae el tema nuevo.

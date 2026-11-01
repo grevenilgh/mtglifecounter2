@@ -1,22 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/look.dart';
-import 'package:mtglifecounter/update_badge.dart';
 
 /// Un botón de la barra central.
 class BarAction {
-  const BarAction(
-    this.icon,
-    this.tooltip,
-    this.onPressed, {
-    this.badge = false,
-  });
+  const BarAction(this.icon, this.tooltip, this.onPressed);
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
-
-  /// Si lleva el puntito de versión nueva ([UpdateBadge]).
-  final bool badge;
 }
 
 /// La barra entre los dos jugadores, con el aspecto de cada tema.
@@ -44,8 +35,9 @@ class CenterBar extends StatelessWidget {
   final List<BarAction> trailing;
 
   /// La cantidad por toque (− 1 +), si está activada en Ajustes. Recibe el
-  /// color del texto y si debe ser la versión pequeña.
-  final Widget Function(Color color, bool compact)? stepper;
+  /// color del texto, si debe ser la versión pequeña y si va como símbolo
+  /// de maná (la del borde antiguo).
+  final Widget Function(Color color, bool compact, bool mana)? stepper;
 
   /// El reloj de ronda, si está activado en Ajustes.
   final Widget? timer;
@@ -69,15 +61,12 @@ class CenterBar extends StatelessWidget {
     );
   }
 
-  List<Widget> _items(Widget Function(BarAction) button, Widget? step) {
-    Widget item(BarAction a) => UpdateBadge(show: a.badge, child: button(a));
-    return [
-      for (final a in leading) item(a),
-      ?step,
-      ?timer,
-      for (final a in trailing) item(a),
-    ];
-  }
+  List<Widget> _items(Widget Function(BarAction) button, Widget? step) => [
+    for (final a in leading) button(a),
+    ?step,
+    ?timer,
+    for (final a in trailing) button(a),
+  ];
 
   // De lado a lado y gris, como la app de siempre.
   Widget _original() {
@@ -102,7 +91,7 @@ class CenterBar extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   onPressed: a.onPressed,
                 ),
-                stepper?.call(Colors.white, false),
+                stepper?.call(Colors.white, false, false),
               ),
             ),
           ),
@@ -151,7 +140,7 @@ class CenterBar extends StatelessWidget {
                         color: Colors.white.withValues(alpha: 0.09),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: stepper!(Colors.white, true),
+                      child: stepper!(Colors.white, true, false),
                     ),
             ),
           ),
@@ -169,6 +158,7 @@ class CenterBar extends StatelessWidget {
 
   // Grosor de su marco, en dp.
   static const double _frameWidth = 13;
+  static const Animation<double> _opaque = AlwaysStoppedAnimation(1);
 
   // Una tira del marco: el borde derecho de la carta, con su filo exterior
   // (la línea clara) a la derecha. [turns] la gira de 90 en 90.
@@ -247,34 +237,45 @@ class CenterBar extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             // El marco: las dos tiras de los lados y, encima, las franjas de
-            // arriba y abajo, con el filo claro siempre hacia fuera.
-            Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: _frameWidth,
-              child: _frameStrip(opacity, flip: true),
-            ),
-            Positioned(
-              right: 0,
-              top: 0,
-              bottom: 0,
-              width: _frameWidth,
-              child: _frameStrip(opacity),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              height: _frameWidth,
-              child: _frameBand(opacity, turns: 3),
-            ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              height: _frameWidth,
-              child: _frameBand(opacity, turns: 1),
+            // arriba y abajo, con el filo claro siempre hacia fuera. Se pinta
+            // opaco y se transparenta entero de una vez: transparentando cada
+            // tira, en las esquinas se juntaban dos y salían de otro tono.
+            Positioned.fill(
+              child: Opacity(
+                opacity: alpha,
+                child: Stack(
+                  children: [
+                    Positioned(
+                      left: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: _frameWidth,
+                      child: _frameStrip(_opaque, flip: true),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      bottom: 0,
+                      width: _frameWidth,
+                      child: _frameStrip(_opaque),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      height: _frameWidth,
+                      child: _frameBand(_opaque, turns: 3),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: _frameWidth,
+                      child: _frameBand(_opaque, turns: 1),
+                    ),
+                  ],
+                ),
+              ),
             ),
             // La caja de texto: la de una tierra doble de Revised con los
             // colores de los dos jugadores, o la de la tierra si no se saben.
@@ -299,46 +300,44 @@ class CenterBar extends StatelessWidget {
                 },
               ),
             ),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Row(
-                  children: _items(
-                    (a) => Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Tooltip(
-                        message: a.tooltip,
-                        child: Material(
-                          type: MaterialType.transparency,
-                          child: InkWell(
-                            customBorder: const CircleBorder(),
-                            onTap: a.onPressed,
-                            child: _ManaSymbol.forAction(a.icon),
+            // Los botones van dentro de la caja: si no caben (con la cantidad
+            // por toque, por ejemplo) se encogen ahí, sin pisar el marco.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: _frameWidth + 2),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                // Abajo, lo que baja la sombra de los símbolos: así quedan
+                // centrados en la caja, sin pisar el reborde de abajo.
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(4, 0, 4, 2.5),
+                  child: Row(
+                    children: _items(
+                      (a) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Tooltip(
+                          message: a.tooltip,
+                          child: Material(
+                            type: MaterialType.transparency,
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: a.onPressed,
+                              child: _ManaSymbol.forAction(a.icon),
+                            ),
                           ),
                         ),
                       ),
-                    ),
-                    stepper == null
-                        ? null
-                        : Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 4),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(19),
-                              gradient: const LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [Color(0xFFF2E8CF), Color(0xFFDFCDA3)],
+                      stepper == null
+                          ? null
+                          : Container(
+                              height: kManaPipSize,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
                               ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0xFF0B0705),
-                                  offset: Offset(0, 2),
-                                ),
-                              ],
+                              decoration: kManaPill,
+                              child: stepper!(kManaInk, true, true),
                             ),
-                            child: stepper!(kInk, true),
-                          ),
+                    ),
                   ),
                 ),
               ),
@@ -364,10 +363,10 @@ class _ManaSymbol extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 38,
-      height: 38,
+      width: kManaPipSize,
+      height: kManaPipSize,
       decoration: kManaPip,
-      child: Icon(icon, color: kManaInk, size: 21),
+      child: Icon(icon, color: kManaInk, size: 18),
     );
   }
 }
