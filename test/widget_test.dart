@@ -461,7 +461,7 @@ void main() {
     await tester.tap(find.byTooltip('Acerca de'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Versión 1.2.3'), findsOneWidget);
+    expect(find.text('Versión 1.2.3 (4)'), findsOneWidget);
     expect(find.textContaining('greven.il'), findsOneWidget);
     for (final link in communityLinks) {
       expect(Uri.parse(link.url).scheme, 'https');

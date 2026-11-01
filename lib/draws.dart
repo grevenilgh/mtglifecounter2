@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mtglifecounter/hand_motion.dart';
 import 'package:mtglifecounter/look.dart';
+import 'package:mtglifecounter/motion_permission.dart';
 import 'package:mtglifecounter/settings_page.dart';
 
 // Los tres sorteos de la barra: moneda, dado D20 y duelo de piedra, papel o
@@ -37,6 +38,8 @@ Future<void> showDraws(
   required bool flipTop,
   DrawKind initial = DrawKind.dice,
 }) {
+  // En el iPhone, desde la web: se pide aquí porque es dentro del toque.
+  requestMotionPermission();
   return Navigator.of(context).push(
     PageRouteBuilder<void>(
       opaque: false,

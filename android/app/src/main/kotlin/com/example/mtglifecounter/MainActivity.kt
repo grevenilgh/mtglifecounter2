@@ -1,11 +1,14 @@
 package com.example.mtglifecounter
 
 import android.content.ComponentName
+import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 
 class MainActivity : FlutterActivity() {
     // Icono pedido desde Dart, a la espera de que la app pase a segundo plano.
@@ -22,6 +25,31 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mtglifecounter/update")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "install") {
+                    try {
+                        openInstaller(File(call.arguments as String))
+                        result.success(null)
+                    } catch (e: Exception) {
+                        result.error("install", e.message, null)
+                    }
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+
+    // Abre el instalador de Android con la APK descargada. Pregunta antes de
+    // instalarla encima y, la primera vez, pide permiso para instalar apps
+    // desde esta.
+    private fun openInstaller(apk: File) {
+        val uri = FileProvider.getUriForFile(this, "$packageName.updates", apk)
+        startActivity(
+            Intent(Intent.ACTION_VIEW)
+                .setDataAndType(uri, "application/vnd.android.package-archive")
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
     }
 
     // El icono se cambia al salir de la app: con ella abierta, algunos móviles

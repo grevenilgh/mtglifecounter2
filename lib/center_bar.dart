@@ -1,13 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/look.dart';
+import 'package:mtglifecounter/update_badge.dart';
 
 /// Un botón de la barra central.
 class BarAction {
-  const BarAction(this.icon, this.tooltip, this.onPressed);
+  const BarAction(
+    this.icon,
+    this.tooltip,
+    this.onPressed, {
+    this.badge = false,
+  });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback onPressed;
+
+  /// Si lleva el puntito de versión nueva ([UpdateBadge]).
+  final bool badge;
 }
 
 /// La barra entre los dos jugadores, con el aspecto de cada tema.
@@ -60,12 +69,15 @@ class CenterBar extends StatelessWidget {
     );
   }
 
-  List<Widget> _items(Widget Function(BarAction) button, Widget? step) => [
-    for (final a in leading) button(a),
-    ?step,
-    ?timer,
-    for (final a in trailing) button(a),
-  ];
+  List<Widget> _items(Widget Function(BarAction) button, Widget? step) {
+    Widget item(BarAction a) => UpdateBadge(show: a.badge, child: button(a));
+    return [
+      for (final a in leading) item(a),
+      ?step,
+      ?timer,
+      for (final a in trailing) item(a),
+    ];
+  }
 
   // De lado a lado y gris, como la app de siempre.
   Widget _original() {

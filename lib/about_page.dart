@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/settings_page.dart';
+import 'package:mtglifecounter/updater.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,9 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 /// fans es la traducción del texto que pide la Política de contenido de fans
 /// de Wizards of the Coast; si se cambia, que siga diciendo lo mismo.
 class AboutPage extends StatelessWidget {
-  const AboutPage({super.key});
+  const AboutPage({super.key, this.updater});
 
   static const String appName = 'MTG Life Counter';
+
+  /// Si lo hay (solo en Android), sale lo de buscar e instalar versiones.
+  final Updater? updater;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +42,7 @@ class AboutPage extends StatelessWidget {
               FutureBuilder<PackageInfo>(
                 future: PackageInfo.fromPlatform(),
                 builder: (context, snapshot) => Text(
-                  snapshot.hasData ? 'Versión ${snapshot.data!.version}' : ' ',
+                  snapshot.hasData ? versionLabel(snapshot.data!) : ' ',
                   style: const TextStyle(color: kMutedText, fontSize: 14),
                 ),
               ),
@@ -47,6 +51,7 @@ class AboutPage extends StatelessWidget {
                 'Hecha por greven.il, sin ánimo de lucro, para la comunidad '
                 'de Magic. Gratis y sin anuncios.',
               ),
+              if (updater case final updater?) _UpdateSection(updater),
             ],
           ),
           _Card(
@@ -100,6 +105,153 @@ class AboutPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// «Versión 2.0.0 (57)»: el nombre y el número de compilación, que es el
+/// que se compara para saber si hay una nueva.
+String versionLabel(PackageInfo info) => info.buildNumber.isEmpty
+    ? 'Versión ${info.version}'
+    : 'Versión ${info.version} (${info.buildNumber})';
+
+/// Si hay versión nueva, el botón que la baja e instala; si no, que está al
+/// día y un botón para volver a mirar.
+class _UpdateSection extends StatefulWidget {
+  const _UpdateSection(this.updater);
+
+  final Updater updater;
+
+  @override
+  State<_UpdateSection> createState() => _UpdateSectionState();
+}
+
+class _UpdateSectionState extends State<_UpdateSection> {
+  @override
+  void initState() {
+    super.initState();
+    // No repite si ya miró hace poco (al abrir la app, por ejemplo).
+    widget.updater.check();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final updater = widget.updater;
+    return ListenableBuilder(
+      listenable: updater,
+      builder: (context, _) {
+        final release = updater.available;
+        if (release == null) {
+          final text = updater.checking
+              ? 'Buscando versiones nuevas…'
+              : updater.checkFailed
+              ? 'No se ha podido mirar si hay versión nueva'
+              : 'Tienes la última versión';
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    text,
+                    style: const TextStyle(color: kMutedText, fontSize: 14),
+                  ),
+                ),
+                TextButton(
+                  onPressed: updater.checking
+                      ? null
+                      : () => updater.check(force: true),
+                  style: TextButton.styleFrom(foregroundColor: kAccent),
+                  child: const Text('Buscar'),
+                ),
+              ],
+            ),
+          );
+        }
+        final downloading = updater.step == UpdateStep.downloading;
+        final progress = updater.progress;
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+          decoration: BoxDecoration(
+            color: kAccent.withAlpha(28),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: kAccent.withAlpha(110)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Hay una versión nueva: ${release.label}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (downloading) ...[
+                LinearProgressIndicator(
+                  value: progress,
+                  color: kAccent,
+                  backgroundColor: Colors.white12,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  progress == null
+                      ? 'Descargando…'
+                      : 'Descargando… ${(progress * 100).floor()} %',
+                  style: const TextStyle(color: kMutedText, fontSize: 13),
+                ),
+              ] else
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: updater.step == UpdateStep.installing
+                        ? null
+                        : updater.install,
+                    icon: const Icon(Icons.system_update),
+                    label: Text(
+                      updater.step == UpdateStep.installing
+                          ? 'Abriendo el instalador…'
+                          : 'Actualizar',
+                    ),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: kAccent,
+                      foregroundColor: const Color(0xFF1C1C1E),
+                    ),
+                  ),
+                ),
+              const SizedBox(height: 8),
+              if (updater.step == UpdateStep.failed) ...[
+                const Text(
+                  'No se ha podido descargar. Prueba otra vez o bájala '
+                  'desde GitHub.',
+                  style: TextStyle(color: Color(0xFFFF8A80), fontSize: 13),
+                ),
+                TextButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse(Updater.releasesPage),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  label: const Text('Abrir en GitHub'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: kAccent,
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ] else
+                const Text(
+                  'Se instala encima sin perder la partida ni los ajustes. '
+                  'La primera vez Android te pedirá permiso para instalar '
+                  'apps desde aquí.',
+                  style: TextStyle(color: kMutedText, fontSize: 13),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

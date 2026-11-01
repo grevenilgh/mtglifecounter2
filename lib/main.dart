@@ -12,6 +12,7 @@ import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
 import 'package:mtglifecounter/timer_view.dart';
+import 'package:mtglifecounter/updater.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 Future<void> main() async {
@@ -50,7 +51,18 @@ Future<void> main() async {
     roundLength: Duration(minutes: settings.roundMinutes),
   );
 
-  runApp(MyApp(settings: settings, game: game, storage: storage, timer: timer));
+  // Solo en Android: pregunta si hay versión nueva al abrir la app.
+  final updater = Updater.supported ? (Updater()..check()) : null;
+
+  runApp(
+    MyApp(
+      settings: settings,
+      game: game,
+      storage: storage,
+      timer: timer,
+      updater: updater,
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -60,12 +72,16 @@ class MyApp extends StatelessWidget {
     required this.game,
     required this.storage,
     required this.timer,
+    this.updater,
   });
 
   final AppSettings settings;
   final GameState game;
   final GameStorage storage;
   final RoundTimer timer;
+
+  /// Busca versiones nuevas; null fuera de Android y en los tests.
+  final Updater? updater;
 
   @override
   Widget build(BuildContext context) {
@@ -83,6 +99,7 @@ class MyApp extends StatelessWidget {
         game: game,
         storage: storage,
         timer: timer,
+        updater: updater,
       ),
     );
   }
@@ -95,12 +112,16 @@ class MyHomePage extends StatefulWidget {
     required this.game,
     required this.storage,
     required this.timer,
+    this.updater,
   });
 
   final AppSettings settings;
   final GameState game;
   final GameStorage storage;
   final RoundTimer timer;
+
+  /// Busca versiones nuevas; null fuera de Android y en los tests.
+  final Updater? updater;
 
   @override
   State<MyHomePage> createState() => _MyHomePageState();
@@ -132,7 +153,11 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   // Al pasar a segundo plano se guarda al momento: puede que la app no vuelva.
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) widget.storage.flush();
+    if (state == AppLifecycleState.resumed) {
+      widget.updater?.check();
+    } else {
+      widget.storage.flush();
+    }
   }
 
   void _syncSettings() {
@@ -176,8 +201,11 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void _openSettings() {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (context) =>
-            SettingsPage(settings: widget.settings, timer: widget.timer),
+        builder: (context) => SettingsPage(
+          settings: widget.settings,
+          timer: widget.timer,
+          updater: widget.updater,
+        ),
       ),
     );
   }
@@ -227,7 +255,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     final settings = widget.settings;
     final game = widget.game;
     return ListenableBuilder(
-      listenable: Listenable.merge([settings, game]),
+      listenable: Listenable.merge([settings, game, ?widget.updater]),
       builder: (context, _) {
         final look = settings.look;
         // Sin la cantidad por toque en la barra, cada toque cuenta 1.
@@ -277,7 +305,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               'Sorteos: moneda, dado y duelo',
               () => showDraws(context, flipTop: game.rotated),
             ),
-            BarAction(Icons.settings_outlined, 'Ajustes', _openSettings),
+            BarAction(
+              Icons.settings_outlined,
+              'Ajustes',
+              _openSettings,
+              badge: widget.updater?.available != null,
+            ),
           ],
         );
         return Scaffold(

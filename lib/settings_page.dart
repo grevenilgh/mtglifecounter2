@@ -10,6 +10,8 @@ import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
 import 'package:mtglifecounter/timer_view.dart';
+import 'package:mtglifecounter/update_badge.dart';
+import 'package:mtglifecounter/updater.dart';
 
 const Color kSettingsBackground = Color(0xFF111113);
 const Color kCardColor = Color(0xFF1C1C1E);
@@ -42,9 +44,17 @@ const _themeChoices = [
 ];
 
 class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key, required this.settings, required this.timer});
+  const SettingsPage({
+    super.key,
+    required this.settings,
+    required this.timer,
+    this.updater,
+  });
 
   final AppSettings settings;
+
+  /// Para el puntito de versión nueva en la ⓘ y el botón de «Acerca de».
+  final Updater? updater;
 
   /// El reloj de la partida, para que la miniatura lo enseñe igual.
   final RoundTimer timer;
@@ -75,11 +85,19 @@ class SettingsPage extends StatelessWidget {
           foregroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
           actions: [
-            IconButton(
-              icon: const Icon(Icons.info_outline),
-              tooltip: 'Acerca de',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute<void>(builder: (_) => const AboutPage()),
+            ListenableBuilder(
+              listenable: updater ?? const AlwaysStoppedAnimation(0),
+              builder: (context, _) => UpdateBadge(
+                show: updater?.available != null,
+                child: IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  tooltip: 'Acerca de',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => AboutPage(updater: updater),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
