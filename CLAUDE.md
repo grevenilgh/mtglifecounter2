@@ -12,6 +12,19 @@ Este archivo da contexto a Claude Code (claude.ai/code) para trabajar en este re
 - La pantalla no se apaga (`wakelock_plus`, desactivable en Ajustes; en el navegador puede negarse hasta que se toca la pantalla, sobre todo en el iPhone, así que `MyHomePage` lo vuelve a pedir al tocar, como mucho cada 30 s) y la app solo funciona en vertical.
 - El texto de la interfaz está en español.
 
+## Cómo trabajar: ramas y publicación (obligatorio)
+
+Llevar algo a `main` en GitHub **publica una versión nueva para todo el mundo**: la web de los iPhone cambia y a todos los Android les sale el aviso de actualizar (ver «Cómo se trabaja y se publica» más abajo). Por eso:
+
+1. **Cada funcionalidad o arreglo va en una rama sacada de `main` actualizado** (`git switch main`, `git pull`, `git switch -c <nombre>`). Nunca se trabaja directamente en `main`.
+2. **Mientras está en la rama, se prueba en el móvil** con una APK compilada en el PC (`flutter build apk --release --build-number $(git rev-list --count HEAD)` e instalada con `adb install -r`). Eso no publica nada.
+3. **Commits en la rama solo cuando el dueño lo pida.**
+4. **A `main` solo cuando el dueño lo pida expresamente**, con la funcionalidad terminada y los tests pasando (`flutter analyze` y `flutter test`). Al proponerlo y al hacerlo hay que decir siempre que eso **genera una versión nueva disponible para todo el mundo**. Se lleva con `git switch main`, `git merge --ff-only <rama>` (o un merge normal si `main` ha avanzado) y `git push origin main`.
+5. **Después, comprobar la publicación**: que el action «Publicar» acabe en verde, que la release nueva lleve `MTGLifeCounter.apk` y que la web responda. Si algo sale mal, el arreglo también va en una rama y con el mismo aviso.
+6. Los arreglos urgentes de algo ya publicado siguen el mismo camino.
+
+La guía para hacerlo a mano, sin Claude, está en el [README](README.md#publicar-una-versión-nueva).
+
 ## Comandos
 
 ```bash
