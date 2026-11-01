@@ -26,11 +26,25 @@ android {
         versionName = flutter.versionName
     }
 
+    // La release se firma con la clave de depuración del PC del autor, la de
+    // todas las APK instaladas: Android solo actualiza si la firma es la misma.
+    // En el action la deja en ANDROID_KEYSTORE_PATH (sale del secreto
+    // ANDROID_KEYSTORE_BASE64); en el PC es ~/.android/debug.keystore.
+    signingConfigs {
+        create("app") {
+            storeFile = file(
+                System.getenv("ANDROID_KEYSTORE_PATH")
+                    ?: "${System.getProperty("user.home")}/.android/debug.keystore",
+            )
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("app")
         }
     }
 }

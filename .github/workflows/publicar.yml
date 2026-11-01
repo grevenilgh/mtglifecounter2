@@ -103,7 +103,8 @@ jobs:
 
       # La app se firma con la clave de depuración del PC del autor, la misma
       # que llevan las APK ya instaladas: sin ella, Android no deja actualizar.
-      # Gradle firma la release con ~/.android/debug.keystore.
+      # build.gradle.kts la lee de ANDROID_KEYSTORE_PATH. (Dejarla en
+      # ~/.android/debug.keystore no sirve: en el runner Gradle usa otra.)
       - name: Clave de firma
         env:
           KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -112,8 +113,10 @@ jobs:
             echo "::error::Falta el secreto ANDROID_KEYSTORE_BASE64 (ver CLAUDE.md)"
             exit 1
           fi
-          mkdir -p ~/.android
-          echo "$KEYSTORE" | base64 -d > ~/.android/debug.keystore
+          echo "$KEYSTORE" | base64 -d > "$RUNNER_TEMP/firma.keystore"
+          keytool -list -keystore "$RUNNER_TEMP/firma.keystore" -storepass android > /dev/null \
+            || { echo "::error::El secreto ANDROID_KEYSTORE_BASE64 no es una clave válida"; exit 1; }
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/firma.keystore" >> "$GITHUB_ENV"
 
       # El nombre sale de pubspec.yaml y el número de compilación es el de
       # commits: solo sube, y la app compara ese número para avisar.
@@ -126,6 +129,21 @@ jobs:
       - run: flutter build apk --release --build-number ${{ steps.version.outputs.build }}
 
       - run: cp build/app/outputs/flutter-apk/app-release.apk MTGLifeCounter.apk
+
+      # Antes de publicar, que la firma sea la de siempre: con otra, los
+      # móviles no podrían actualizar y quien la instalara se quedaría
+      # atascado. Es la huella del certificado, no la clave: no es secreta.
+      - name: Comprobar la firma
+        env:
+          FIRMA_SHA256: e451460b443c697be7cc58b517adff9dd7ed941b0b6d9c28040258e8cee5b889
+        run: |
+          apksigner=$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -1)
+          firma=$("$apksigner" verify --print-certs MTGLifeCounter.apk | sed -n 's/.*certificate SHA-256 digest: //p' | head -1)
+          echo "Firma de la APK: $firma"
+          if [ "$firma" != "$FIRMA_SHA256" ]; then
+            echo "::error::La APK no lleva la firma de siempre ($firma): no se publica"
+            exit 1
+          fi
 
       # La etiqueta acaba en el número de compilación: la app lo lee de ahí.
       - uses: softprops/action-gh-release@v2
