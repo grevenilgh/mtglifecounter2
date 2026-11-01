@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mtglifecounter/about_page.dart';
 import 'package:mtglifecounter/app_icon.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/game_state.dart';
@@ -8,6 +9,7 @@ import 'package:mtglifecounter/main.dart';
 import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -428,6 +430,50 @@ void main() {
     settings.showHistory = true;
     await tester.pump();
     expect(list, findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.binding.setSurfaceSize(null);
+  });
+
+  testWidgets('Ajustes abre «Acerca de» con la versión y el aviso legal', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    PackageInfo.setMockInitialValues(
+      appName: 'mtglifecounter',
+      packageName: 'mtg.premodern.alicante.lifecounter',
+      version: '1.2.3',
+      buildNumber: '4',
+      buildSignature: '',
+    );
+    final prefs = await SharedPreferences.getInstance();
+    final settings = AppSettings(prefs);
+    final game = GameState();
+    final storage = GameStorage(prefs, game);
+    final timer = RoundTimer(prefs);
+
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    await tester.pumpWidget(
+      MyApp(settings: settings, game: game, storage: storage, timer: timer),
+    );
+    await tester.tap(find.byTooltip('Ajustes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Acerca de'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Versión 1.2.3'), findsOneWidget);
+    expect(find.textContaining('greven.il'), findsOneWidget);
+    for (final link in communityLinks) {
+      expect(Uri.parse(link.url).scheme, 'https');
+    }
+    await tester.scrollUntilVisible(find.text('Old School MTG Channel'), 200);
+    expect(find.text('Full Tapped'), findsOneWidget);
+    expect(find.textContaining('Política de contenido de fans'), findsOne);
+    await tester.scrollUntilVisible(
+      find.text('Ver licencias de software'),
+      200,
+    );
+    expect(find.text('Ver licencias de software'), findsOneWidget);
 
     await tester.pump(const Duration(seconds: 1));
     await tester.binding.setSurfaceSize(null);

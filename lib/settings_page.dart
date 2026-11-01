@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_colorpicker/flutter_colorpicker.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:mtglifecounter/about_page.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
 import 'package:mtglifecounter/counter_layout.dart';
@@ -73,6 +74,15 @@ class SettingsPage extends StatelessWidget {
           backgroundColor: kSettingsBackground,
           foregroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'Acerca de',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(builder: (_) => const AboutPage()),
+              ),
+            ),
+          ],
           bottom: const TabBar(
             indicatorColor: kAccent,
             labelColor: Colors.white,
