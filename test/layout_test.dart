@@ -143,53 +143,45 @@ class TestApp {
   DateTime now = DateTime(2026, 10, 31, 18);
 }
 
-/// Carga Roboto y los iconos del SDK de Flutter para que el texto mida lo
-/// que mide de verdad (sin esto los tests pintan cada letra como un
-/// cuadrado). Las fuentes de Google Fonts no están sin red: se prueban con
-/// las más parecidas que trae el SDK.
+/// Carga Roboto para que el texto mida lo que mide de verdad (sin esto los
+/// tests pintan cada letra como un cuadrado, que ocupa más y da
+/// desbordamientos que no existen). Las fuentes de Google Fonts no están sin
+/// red: se prueban con las más parecidas.
 ///
-/// Si no las encuentra falla en vez de seguir: con los cuadrados el texto
-/// ocupa más y salen desbordamientos que no existen (pasó en GitHub Actions,
-/// donde `FLUTTER_ROOT` no lleva a las fuentes).
+/// Roboto va en `test/fonts` (copiada del SDK de Flutter, Apache 2.0): el SDK
+/// de Linux que instala GitHub Actions trae su carpeta de fuentes sin ella.
+/// Los iconos sí se cogen del SDK, si están; no cambian lo que mide nada.
 Future<void> loadFonts() async {
-  final exe = Platform.resolvedExecutable.replaceAll(r'\', '/');
-  final i = exe.indexOf('/bin/cache/');
-  final candidates = [
-    Platform.environment['FLUTTER_ROOT']?.replaceAll(r'\', '/'),
-    // flutter_tester está en <sdk>/bin/cache/artifacts/engine/...
-    if (i >= 0) exe.substring(0, i),
-  ].nonNulls.map((root) => '$root/bin/cache/artifacts/material_fonts');
-  final dir = candidates
-      .where((d) => File('$d/roboto-regular.ttf').existsSync())
-      .firstOrNull;
-  if (dir == null) {
-    throw StateError(
-      'No están las fuentes del SDK de Flutter en ${candidates.join(' ni ')} '
-      '(ejecutable: $exe). Prueba con `flutter precache`.',
-    );
-  }
-  Future<void> load(String family, List<String> files) async {
+  Future<void> load(String family, List<String> paths) async {
     final loader = FontLoader(family);
-    for (final name in files) {
-      final file = File('$dir/$name');
-      if (!file.existsSync()) continue;
+    for (final path in paths) {
       loader.addFont(
-        Future.value(ByteData.sublistView(file.readAsBytesSync())),
+        Future.value(ByteData.sublistView(File(path).readAsBytesSync())),
       );
     }
     await loader.load();
   }
 
+  const dir = 'test/fonts';
   await load('Roboto', [
-    'roboto-regular.ttf',
-    'roboto-medium.ttf',
-    'roboto-bold.ttf',
-    'roboto-black.ttf',
+    '$dir/roboto-regular.ttf',
+    '$dir/roboto-medium.ttf',
+    '$dir/roboto-bold.ttf',
+    '$dir/roboto-black.ttf',
   ]);
-  await load('MaterialIcons', ['materialicons-regular.otf']);
-  await load('Barlow Condensed', ['robotocondensed-bold.ttf']);
-  await load('Outfit', ['roboto-bold.ttf']);
-  await load('Vollkorn', ['roboto-black.ttf']);
+  await load('Barlow Condensed', ['$dir/robotocondensed-bold.ttf']);
+  await load('Outfit', ['$dir/roboto-bold.ttf']);
+  await load('Vollkorn', ['$dir/roboto-black.ttf']);
+
+  // flutter_tester está en <sdk>/bin/cache/artifacts/engine/...
+  final exe = Platform.resolvedExecutable.replaceAll(r'\', '/');
+  final i = exe.indexOf('/bin/cache/');
+  if (i < 0) return;
+  final icons = File(
+    '${exe.substring(0, i)}/bin/cache/artifacts/material_fonts/'
+    'materialicons-regular.otf',
+  );
+  if (icons.existsSync()) await load('MaterialIcons', [icons.path]);
 }
 
 Future<TestApp> pumpApp(
