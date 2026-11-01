@@ -32,8 +32,13 @@ jobs:
 
       - run: flutter pub get
 
+      # Las fuentes que usa test/layout_test.dart para medir el texto.
+      - run: flutter precache --universal
+
       # Si los tests fallan no se publica nada y se queda la versión anterior.
-      - run: flutter test
+      # Con el reporter de GitHub cada fallo sale como anotación en el
+      # resumen de la ejecución, que se ve sin abrir el log.
+      - run: flutter test --reporter github
 
       # La web vive en /<repo>/, no en la raíz del dominio.
       - run: flutter build web --release --base-href /${{ github.event.repository.name }}/

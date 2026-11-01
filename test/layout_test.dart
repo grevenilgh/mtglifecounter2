@@ -147,16 +147,27 @@ class TestApp {
 /// que mide de verdad (sin esto los tests pintan cada letra como un
 /// cuadrado). Las fuentes de Google Fonts no están sin red: se prueban con
 /// las más parecidas que trae el SDK.
+///
+/// Si no las encuentra falla en vez de seguir: con los cuadrados el texto
+/// ocupa más y salen desbordamientos que no existen (pasó en GitHub Actions,
+/// donde `FLUTTER_ROOT` no lleva a las fuentes).
 Future<void> loadFonts() async {
-  final root =
-      Platform.environment['FLUTTER_ROOT'] ??
-      () {
-        final exe = Platform.resolvedExecutable.replaceAll(r'\', '/');
-        final i = exe.indexOf('/bin/cache/');
-        return i < 0 ? null : exe.substring(0, i);
-      }();
-  if (root == null) return;
-  final dir = '$root/bin/cache/artifacts/material_fonts';
+  final exe = Platform.resolvedExecutable.replaceAll(r'\', '/');
+  final i = exe.indexOf('/bin/cache/');
+  final candidates = [
+    Platform.environment['FLUTTER_ROOT']?.replaceAll(r'\', '/'),
+    // flutter_tester está en <sdk>/bin/cache/artifacts/engine/...
+    if (i >= 0) exe.substring(0, i),
+  ].nonNulls.map((root) => '$root/bin/cache/artifacts/material_fonts');
+  final dir = candidates
+      .where((d) => File('$d/roboto-regular.ttf').existsSync())
+      .firstOrNull;
+  if (dir == null) {
+    throw StateError(
+      'No están las fuentes del SDK de Flutter en ${candidates.join(' ni ')} '
+      '(ejecutable: $exe). Prueba con `flutter precache`.',
+    );
+  }
   Future<void> load(String family, List<String> files) async {
     final loader = FontLoader(family);
     for (final name in files) {
