@@ -32,8 +32,10 @@ jobs:
 
       - run: flutter pub get
 
-      # Las fuentes que usa test/layout_test.dart para medir el texto.
-      - run: flutter precache --universal
+      # Las fuentes que usa test/layout_test.dart para medir el texto. El SDK
+      # de Linux trae material_fonts sin Roboto y marcado como al día, así que
+      # sin --force no se vuelve a bajar.
+      - run: flutter precache --universal --force
 
       # Si los tests fallan no se publica nada y se queda la versión anterior.
       # Con el reporter de GitHub cada fallo sale como anotación en el
