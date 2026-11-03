@@ -53,9 +53,6 @@ Future<void> main() async {
     mode: settings.timerMode,
     roundLength: Duration(minutes: settings.roundMinutes),
   );
-  // Sin el reloj de ajedrez activado en Ajustes, uno que se quedara así
-  // vuelve a lo de por defecto.
-  if (timer.chess && !settings.chessEnabled) timer.reset();
 
   // Solo en Android: pregunta si hay versión nueva al abrir la app.
   final updater = Updater.supported ? (Updater()..check()) : null;
@@ -196,6 +193,9 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
       settings.timerMode,
       Duration(minutes: settings.roundMinutes),
     );
+    // Sin el reloj de ajedrez activado en Ajustes no puede quedar uno (al
+    // abrir la app o al quitarlo): vuelve a lo de por defecto.
+    if (widget.timer.chess && !settings.chessEnabled) widget.timer.reset();
     // El icono del lanzador sigue a la skin.
     if (settings.skinId != _iconSkin) {
       _iconSkin = settings.skinId;

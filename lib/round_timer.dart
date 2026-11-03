@@ -144,8 +144,9 @@ class RoundTimer extends ChangeNotifier {
 
   bool get running => _startedAt != null;
 
-  /// Si se ha tocado desde el último reinicio.
-  bool get started => running || _accumulated > Duration.zero;
+  /// Si se ha tocado desde el último reinicio. En el reloj de ajedrez, en
+  /// cuanto alguien ha pulsado, aunque aún no haya pasado tiempo.
+  bool get started => running || _accumulated > Duration.zero || _turn != null;
 
   // Si se atrasa el reloj del móvil con el temporizador en marcha, lo que va
   // desde que arrancó saldría negativo: cuenta como cero.
