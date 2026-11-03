@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:mtglifecounter/chess_clock.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/screen_image.dart';
@@ -62,6 +63,10 @@ class PlayerCounter extends StatefulWidget {
   final int lifeChangeAmount;
   final VoidCallback onLifeChanged;
 
+  /// El botón del reloj de ajedrez, abajo a la derecha; null sin él. Le
+  /// quita sitio al historial.
+  final Widget? clock;
+
   const PlayerCounter({
     super.key,
     required this.player,
@@ -70,6 +75,7 @@ class PlayerCounter extends StatefulWidget {
     required this.style,
     required this.lifeChangeAmount,
     required this.onLifeChanged,
+    this.clock,
   });
 
   @override
@@ -158,6 +164,14 @@ class _PlayerCounterState extends State<PlayerCounter>
     final tapX = details.localPosition.dx;
     final tapY = details.localPosition.dy;
     if (tapX >= width - _historyReserve(widget.style)) return;
+    // Sin historial, el botón del reloj queda suelto en la esquina: ahí
+    // tampoco cuentan los toques.
+    if (widget.clock != null) {
+      final corner = _clockCorner(widget.style);
+      if (tapX >= width - corner.width && tapY >= height - corner.height) {
+        return;
+      }
+    }
 
     // La mitad de arriba suma y la de abajo resta.
     final change = tapY < height / 2
@@ -191,6 +205,7 @@ class _PlayerCounterState extends State<PlayerCounter>
       hit: _hit,
       gained: () => _gained,
       scrollController: _scrollController,
+      clock: widget.clock,
     );
     return GestureDetector(
       onTapDown: _onTap,
@@ -231,6 +246,25 @@ double _numberInset(PanelStyle style) => !style.showHistory
         AppTheme.modern => 72,
         AppTheme.classic => _kFrame + _kTextBox + _kTypeBand,
       };
+
+/// Dónde va el botón del reloj de ajedrez cuando no hay historial: lo que se
+/// separa del borde derecho y del de abajo de la zona del número.
+Offset _looseClockGap(Look look) => switch (look.theme) {
+  AppTheme.original => const Offset(6, 8),
+  AppTheme.modern => Offset(10, look.isGlass ? 40 : 14),
+  // Dentro del marco, en la esquina de la ilustración.
+  AppTheme.classic => const Offset(_kFrame + 2, _kFrame + 2),
+};
+
+/// La esquina de abajo a la derecha en la que los toques no suman ni restan
+/// porque está el botón del reloj (con un margen alrededor y lo que mete el
+/// borde de la tarjeta o de la carta).
+Size _clockCorner(PanelStyle style) {
+  final look = style.look;
+  final gap = _looseClockGap(look);
+  final size = chessClockSize(look);
+  return Size(gap.dx + size.width + 10, gap.dy + size.height + 10);
+}
 
 // Medidas de la carta tumbada del borde antiguo, en dp: el marco de arriba,
 // abajo y a la derecha, la franja del nombre a la izquierda, la de la línea
@@ -441,6 +475,7 @@ class _Zone extends StatelessWidget {
     required this.hit,
     required this.gained,
     required this.scrollController,
+    this.clock,
   });
 
   final PlayerState player;
@@ -450,6 +485,7 @@ class _Zone extends StatelessWidget {
   final bool Function() gained;
   final ScrollController scrollController;
   final CardFrame frame;
+  final Widget? clock;
 
   @override
   Widget build(BuildContext context) {
@@ -529,7 +565,14 @@ class _Zone extends StatelessWidget {
             plusTop + 50,
             // Sin historial, el mismo margen que a la izquierda.
             inset + (style.showHistory ? 4 : 12),
-            minusBottom + 50,
+            // Sin historial, el botón del reloj queda suelto en la esquina:
+            // el número se queda por encima de él.
+            clock != null && !style.showHistory
+                ? max(
+                    minusBottom + 50,
+                    _looseClockGap(look).dy + chessClockSize(look).height + 6,
+                  )
+                : minusBottom + 50,
           ),
           child: Center(
             child: _HitNumber(
@@ -606,6 +649,13 @@ class _Zone extends StatelessWidget {
             frame: frame,
             alpha: style.historyOpacity,
             controller: scrollController,
+            clock: clock,
+          )
+        else if (clock != null)
+          Positioned(
+            right: _looseClockGap(look).dx,
+            bottom: _looseClockGap(look).dy,
+            child: clock!,
           ),
       ],
     );
@@ -959,6 +1009,7 @@ class _History extends StatelessWidget {
     required this.frame,
     required this.alpha,
     required this.controller,
+    this.clock,
   });
 
   final PlayerState player;
@@ -968,9 +1019,25 @@ class _History extends StatelessWidget {
   final CardFrame frame;
   final ScrollController controller;
 
+  /// El botón del reloj de ajedrez: va debajo y el historial se acorta.
+  final Widget? clock;
+
   @override
   Widget build(BuildContext context) {
     final classic = look.isClassic;
+    // Con el reloj, lo de arriba es el historial y lo de abajo el botón.
+    Widget withClock(Widget top, {double gap = 0, Color? rule}) {
+      final clock = this.clock;
+      if (clock == null) return top;
+      return _WithClock(
+        clockHeight: chessClockSize(look).height,
+        gap: gap,
+        rule: rule,
+        top: top,
+        clock: clock,
+      );
+    }
+
     final list = ListenableBuilder(
       listenable: player,
       builder: (context, _) {
@@ -999,7 +1066,10 @@ class _History extends StatelessWidget {
         width: 76,
         child: ColoredBox(
           color: Colors.black.withValues(alpha: alpha),
-          child: list,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: clock == null ? 0 : 8),
+            child: withClock(list, gap: 6),
+          ),
         ),
       ),
       AppTheme.modern => Positioned(
@@ -1008,14 +1078,18 @@ class _History extends StatelessWidget {
         bottom: look.isGlass ? 40 : 14,
         right: 10,
         width: 62,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: alpha),
-            borderRadius: BorderRadius.circular(look.isCards ? 18 : 16),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+        // El botón del reloj va aparte, debajo de la caja del historial.
+        child: withClock(
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: alpha),
+              borderRadius: BorderRadius.circular(look.isCards ? 18 : 16),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: list,
           ),
-          clipBehavior: Clip.antiAlias,
-          child: list,
+          gap: 8,
         ),
       ),
       AppTheme.classic => Positioned(
@@ -1043,10 +1117,68 @@ class _History extends StatelessWidget {
               bottom: BorderSide(color: Color(0x99F5F0E4), width: 2),
             ),
           ),
-          child: list,
+          // Una raya en la tinta de la caja separa el reloj del historial.
+          child: withClock(
+            list,
+            rule: frame.darkTextBox
+                ? const Color(0x59FFF6E4)
+                : const Color(0x5914110E),
+          ),
         ),
       ),
     };
+  }
+}
+
+/// El historial con el botón del reloj de ajedrez debajo. Si no cabe (en
+/// pantallas muy bajas) solo queda el botón, encogido si hace falta.
+class _WithClock extends StatelessWidget {
+  const _WithClock({
+    required this.clockHeight,
+    required this.gap,
+    required this.top,
+    required this.clock,
+    this.rule,
+  });
+
+  final double clockHeight;
+  final double gap;
+  final Color? rule;
+  final Widget top;
+  final Widget clock;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final height = constraints.maxHeight;
+        if (height < clockHeight + gap + 24) {
+          return Align(
+            alignment: Alignment.bottomCenter,
+            child: SizedBox(
+              height: min(height, clockHeight),
+              child: FittedBox(child: clock),
+            ),
+          );
+        }
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: top),
+            SizedBox(height: gap),
+            if (rule != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Divider(height: 1, thickness: 1, color: rule),
+              ),
+            SizedBox(
+              height: clockHeight,
+              child: Center(child: clock),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 

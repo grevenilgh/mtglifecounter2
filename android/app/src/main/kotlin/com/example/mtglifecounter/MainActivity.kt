@@ -4,6 +4,12 @@ import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.os.Build
+import android.os.VibrationAttributes
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -38,6 +44,45 @@ class MainActivity : FlutterActivity() {
                     result.notImplemented()
                 }
             }
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mtglifecounter/vibrate")
+            .setMethodCallHandler { call, result ->
+                if (call.method == "vibrate") {
+                    vibrate((call.arguments as Number).toLong())
+                    result.success(null)
+                } else {
+                    result.notImplemented()
+                }
+            }
+    }
+
+    // Vibra con el motor del móvil. La vibración de Flutter (HapticFeedback)
+    // no se nota si en el móvil está apagada la vibración al tocar, y una
+    // vibración sin tipo se la salta Android si la de multimedia está a cero.
+    // Va como la de una alarma: es la que la gente deja encendida, y el reloj
+    // de la ronda es eso.
+    private fun vibrate(ms: Long) {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java).defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(VIBRATOR_SERVICE) as Vibrator
+        }
+        if (!vibrator.hasVibrator()) return
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(ms, 255),
+                VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM),
+            )
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(
+                VibrationEffect.createOneShot(ms, 255),
+                AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM).build(),
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(ms)
+        }
     }
 
     // Abre el instalador de Android con la APK descargada. Pregunta antes de

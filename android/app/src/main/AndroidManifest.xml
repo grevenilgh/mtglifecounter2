@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.INTERNET"/>
     <!-- Abrir el instalador con la APK nueva (Android pide permiso la primera vez). -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+    <!-- Vibrar al pasar el turno del reloj de ajedrez y al acabarse el tiempo. -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
     <application
         android:label="AlicanteMTG"
         android:name="${applicationName}"

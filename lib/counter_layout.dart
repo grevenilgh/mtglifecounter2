@@ -2,9 +2,11 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/app_settings.dart';
+import 'package:mtglifecounter/chess_clock.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/player_counter.dart';
+import 'package:mtglifecounter/round_timer.dart';
 
 /// Color de la barra central. El borde antiguo no lo usa: su barra es una
 /// carta dorada en todas las skins.
@@ -20,6 +22,7 @@ class CounterLayout extends StatefulWidget {
     required this.bar,
     this.lifeChangeAmount = 1,
     this.onLifeChanged,
+    this.timer,
   });
 
   final AppSettings settings;
@@ -27,6 +30,9 @@ class CounterLayout extends StatefulWidget {
   final Widget bar;
   final int lifeChangeAmount;
   final VoidCallback? onLifeChanged;
+
+  /// Con el reloj de ajedrez activado, cada panel lleva su botón.
+  final RoundTimer? timer;
 
   @override
   State<CounterLayout> createState() => _CounterLayoutState();
@@ -59,7 +65,8 @@ class _CounterLayoutState extends State<CounterLayout> {
     // En el borde antiguo cada jugador lleva el marco de carta que mejor va
     // con su color, y nunca el mismo que el otro (o el que elija la skin).
     final frames = skin.cardFrames;
-    Widget panel(PlayerState player, Color color, CardFrame frame) =>
+    final timer = widget.timer;
+    Widget panel(PlayerState player, Color color, CardFrame frame, Seat seat) =>
         PlayerCounter(
           player: player,
           color: color,
@@ -67,6 +74,19 @@ class _CounterLayoutState extends State<CounterLayout> {
           style: style,
           lifeChangeAmount: widget.lifeChangeAmount,
           onLifeChanged: widget.onLifeChanged ?? () {},
+          clock: timer != null && timer.chess
+              ? ChessClockButton(
+                  timer: timer,
+                  seat: seat,
+                  look: look,
+                  color: color,
+                  // En el borde antiguo, sin historial va sobre la ilustración.
+                  darkInk: !settings.showHistory || frame.darkTextBox,
+                  warningEnabled: settings.timerWarning,
+                  vibrate: settings.timerVibrate,
+                  animations: settings.animations,
+                )
+              : null,
         );
     return Stack(
       key: _screenKey,
@@ -89,11 +109,18 @@ class _CounterLayoutState extends State<CounterLayout> {
                     Expanded(
                       child: Transform.rotate(
                         angle: game.rotated ? pi : 0,
-                        child: panel(game.top, skin.top, frames.$1),
+                        child: panel(game.top, skin.top, frames.$1, Seat.top),
                       ),
                     ),
                     SizedBox(height: look.barGap),
-                    Expanded(child: panel(game.bottom, skin.bottom, frames.$2)),
+                    Expanded(
+                      child: panel(
+                        game.bottom,
+                        skin.bottom,
+                        frames.$2,
+                        Seat.bottom,
+                      ),
+                    ),
                   ],
                 ),
                 // La barra va centrada: en el hueco entre los paneles o, en

@@ -117,7 +117,7 @@ class SettingsPage extends StatelessWidget {
         body: ListenableBuilder(
           listenable: settings,
           builder: (context, _) =>
-              TabBarView(children: [_design(context), _game()]),
+              TabBarView(children: [_design(context), _game(context)]),
         ),
       ),
     );
@@ -484,8 +484,47 @@ class SettingsPage extends StatelessWidget {
     if (accepted == true) await settings.resetLook();
   }
 
-  Widget _game() {
-    final countdown = settings.timerMode == TimerMode.countdown;
+  /// Activa o quita el reloj de ajedrez. Al quitarlo, si el reloj de la
+  /// partida es de ajedrez se reinicia (y vuelve a lo de por defecto); si ya
+  /// había empezado, pregunta antes.
+  Future<void> _setChess(BuildContext context, bool value) async {
+    if (!value && timer.chess && timer.started) {
+      final accepted = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: kCardColor,
+          title: const Text(
+            'Quitar el reloj de ajedrez',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'El reloj de esta partida es de ajedrez y ya ha empezado. Al '
+            'quitarlo se reinicia.',
+            style: TextStyle(color: kMutedText),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              child: const Text('Cancelar'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(foregroundColor: kAccent),
+              child: const Text('Quitar y reiniciar'),
+            ),
+          ],
+        ),
+      );
+      if (accepted != true) return;
+    }
+    settings.chessEnabled = value;
+    if (!value && timer.chess) timer.reset();
+  }
+
+  Widget _game(BuildContext context) {
+    final mode = settings.timerMode;
+    final chess = settings.chessClock;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 36),
       children: [
@@ -505,9 +544,12 @@ class SettingsPage extends StatelessWidget {
             ),
             SettingsSwitch(
               title: 'Temporizador de ronda',
-              subtitle: 'El reloj en la barra.',
+              subtitle: chess
+                  ? 'El reloj en la barra. Con el reloj de ajedrez tiene que '
+                        'estar: ahí se pone el tiempo y se pausa.'
+                  : 'El reloj en la barra.',
               value: settings.showTimer,
-              onChanged: (v) => settings.showTimer = v,
+              onChanged: chess ? null : (v) => settings.showTimer = v,
             ),
             SettingsSwitch(
               title: 'Cantidad por toque (− 1 +)',
@@ -523,38 +565,75 @@ class SettingsPage extends StatelessWidget {
           title: 'Temporizador',
           icon: Icons.timer_outlined,
           children: [
+            // Activa la función: sin esto no se puede elegir «Ajedrez» ni
+            // aquí ni en el reloj de la barra.
+            SettingsSwitch(
+              title: 'Reloj de ajedrez',
+              subtitle:
+                  'Reparte el tiempo de la ronda entre los dos, con un botón '
+                  'en cada panel. Activado, se puede elegir aquí y en el '
+                  'reloj de la barra.',
+              value: settings.chessEnabled,
+              onChanged: (v) => _setChess(context, v),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Modo por defecto',
+              style: TextStyle(color: Colors.white, fontSize: 16),
+            ),
+            // Lo de aquí es lo de por defecto: no toca el reloj de la partida
+            // de ahora, que lo coge al reiniciarse.
+            const _Help(
+              'Así empieza el reloj cada vez que lo reinicias. Cambiarlo no '
+              'toca el de la partida de ahora: ese se cambia en el reloj de '
+              'la barra.',
+            ),
+            const SizedBox(height: 8),
             _Choices(
               children: [
-                for (final mode in TimerMode.values)
-                  SettingsChip(
-                    label: mode.label,
-                    selected: settings.timerMode == mode,
-                    onTap: () => settings.timerMode = mode,
-                  ),
+                for (final m in TimerMode.values)
+                  if (m != TimerMode.chess || settings.chessEnabled)
+                    SettingsChip(
+                      label: m.label,
+                      selected: mode == m,
+                      onTap: () => settings.timerMode = m,
+                    ),
               ],
             ),
-            _Help(
-              countdown
-                  ? 'Cuenta hacia cero el tiempo de la ronda. También se cambia '
-                        'desde el reloj de la barra.'
-                  : 'Cuenta hacia delante lo que dura la partida, sin límite '
-                        'ni aviso.',
-            ),
-            if (countdown) ...[
+            _Help(switch (mode) {
+              TimerMode.countdown =>
+                'Cuenta hacia cero el tiempo de la ronda. En la partida '
+                    'también se cambia desde el reloj de la barra.',
+              TimerMode.stopwatch =>
+                'Cuenta hacia delante lo que dura la partida, sin límite '
+                    'ni aviso.',
+              TimerMode.chess =>
+                'El tiempo de la ronda se reparte entre los dos. Cada uno '
+                    'tiene un botón en su panel: al pulsarlo se para su reloj '
+                    'y corre el del otro. Lo arranca quien no empieza. Quien '
+                    'se pasa sigue contando, en rojo.',
+            }),
+            if (mode != TimerMode.stopwatch) ...[
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Duración de la ronda',
                           style: TextStyle(color: Colors.white, fontSize: 16),
                         ),
                         Text(
-                          'Por defecto, 50 minutos',
-                          style: TextStyle(color: kMutedText, fontSize: 14),
+                          chess
+                              ? '${formatClock(Duration(minutes: settings.roundMinutes) ~/ 2)} '
+                                    'para cada jugador'
+                              : 'Por defecto, 50 minutos',
+                          style: const TextStyle(
+                            color: kMutedText,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -607,18 +686,47 @@ class SettingsPage extends StatelessWidget {
                 ],
               ),
               SettingsSwitch(
-                title: 'Avisar a falta de 5 minutos',
-                subtitle: 'El reloj de la barra se pone ámbar.',
+                title: chess
+                    ? 'Avisar a falta de 2 minutos'
+                    : 'Avisar a falta de 5 minutos',
+                subtitle: chess
+                    ? 'El botón de cada jugador se pone ámbar.'
+                    : 'El reloj de la barra se pone ámbar.',
                 value: settings.timerWarning,
                 onChanged: (v) => settings.timerWarning = v,
               ),
               SettingsSwitch(
-                title: 'Vibrar al acabar el tiempo',
-                subtitle: 'Un aviso que se nota con el móvil en la mesa.',
+                title: chess
+                    ? 'Vibrar al pulsar y al acabarse'
+                    : 'Vibrar al acabar el tiempo',
+                subtitle: chess
+                    ? 'Un toque corto al pasar el turno y tres si a alguien '
+                          'se le acaba el suyo.'
+                    : 'Un aviso que se nota con el móvil en la mesa.',
                 value: settings.timerVibrate,
                 onChanged: (v) => settings.timerVibrate = v,
               ),
             ],
+            // Si el reloj de ahora va con otra cosa, se dice hasta cuándo.
+            ListenableBuilder(
+              listenable: timer.modeListenable,
+              builder: (context, _) {
+                final length = Duration(minutes: settings.roundMinutes);
+                final same =
+                    timer.mode == mode &&
+                    (mode == TimerMode.stopwatch ||
+                        timer.roundLength == length);
+                if (same) return const SizedBox.shrink();
+                final now = timer.mode == TimerMode.stopwatch
+                    ? 'Cronómetro'
+                    : '${timer.mode.label} de '
+                          '${formatClock(timer.roundLength)}';
+                return _Help(
+                  'La partida de ahora sigue con $now hasta que reinicies el '
+                  'reloj desde la barra.',
+                );
+              },
+            ),
           ],
         ),
         _Group(
@@ -1019,21 +1127,26 @@ class SettingsChip extends StatelessWidget {
 
   final String label;
   final bool selected;
-  final VoidCallback onTap;
+
+  /// Null si ahora no se puede elegir.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final onTap = this.onTap;
     return ChoiceChip(
       label: Text(label),
       selected: selected,
-      onSelected: (_) => onTap(),
+      onSelected: onTap == null ? null : (_) => onTap(),
       showCheckmark: false,
       backgroundColor: const Color(0xFF2C2C2E),
       selectedColor: kAccent,
       side: BorderSide.none,
       shape: const StadiumBorder(),
       labelStyle: TextStyle(
-        color: selected ? const Color(0xFF1A1306) : Colors.white,
+        color: selected
+            ? const Color(0xFF1A1306)
+            : Colors.white.withValues(alpha: onTap == null ? 0.38 : 1),
         fontWeight: FontWeight.w600,
       ),
     );
@@ -1054,7 +1167,9 @@ class SettingsSwitch extends StatelessWidget {
   /// La explicación de debajo; sin ella la fila es más baja.
   final String? subtitle;
   final bool value;
-  final ValueChanged<bool> onChanged;
+
+  /// Null si no se puede cambiar.
+  final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -1132,7 +1247,7 @@ class _CounterPreviewState extends State<CounterPreview> {
         BarAction(Icons.refresh, 'Reiniciar partida', none),
         BarAction(Icons.swap_vert, 'Girar el panel de arriba', none),
       ],
-      timer: settings.showTimer
+      timer: settings.showTimer || widget.timer.chess
           ? TimerButton(
               timer: widget.timer,
               look: look,
@@ -1182,6 +1297,7 @@ class _CounterPreviewState extends State<CounterPreview> {
                           settings: settings,
                           game: _game,
                           bar: bar,
+                          timer: widget.timer,
                         ),
                       ),
                     ),

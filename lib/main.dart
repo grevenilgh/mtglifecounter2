@@ -14,6 +14,7 @@ import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/updater.dart';
+import 'package:mtglifecounter/vibration.dart';
 import 'package:mtglifecounter/welcome_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -52,6 +53,9 @@ Future<void> main() async {
     mode: settings.timerMode,
     roundLength: Duration(minutes: settings.roundMinutes),
   );
+  // Sin el reloj de ajedrez activado en Ajustes, uno que se quedara así
+  // vuelve a lo de por defecto.
+  if (timer.chess && !settings.chessEnabled) timer.reset();
 
   // Solo en Android: pregunta si hay versión nueva al abrir la app.
   final updater = Updater.supported ? (Updater()..check()) : null;
@@ -186,9 +190,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   void _syncSettings() {
     final settings = widget.settings;
     widget.storage.enabled = settings.rememberGame;
-    widget.timer
-      ..mode = settings.timerMode
-      ..setRoundLength(Duration(minutes: settings.roundMinutes));
+    // Lo de Ajustes es lo de por defecto: al reloj de ahora solo le llega si
+    // no ha empezado.
+    widget.timer.setDefaults(
+      settings.timerMode,
+      Duration(minutes: settings.roundMinutes),
+    );
     // El icono del lanzador sigue a la skin.
     if (settings.skinId != _iconSkin) {
       _iconSkin = settings.skinId;
@@ -211,12 +218,13 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     widget.settings.applyWakelock();
   }
 
-  // Al acabar la ronda el móvil vibra tres veces, para notarlo en la mesa.
+  // Al acabar la ronda (o el tiempo de un jugador del reloj de ajedrez) el
+  // móvil vibra tres veces, para notarlo en la mesa.
   Future<void> _onTimeUp() async {
     if (!widget.settings.timerVibrate) return;
     for (var i = 0; i < 3; i++) {
-      await HapticFeedback.vibrate();
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+      await vibrate(const Duration(milliseconds: 300));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
     }
   }
 
@@ -293,7 +301,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     final settings = widget.settings;
     final game = widget.game;
     return ListenableBuilder(
-      listenable: Listenable.merge([settings, game]),
+      // El modo del reloj, para poner o quitar los botones del de ajedrez.
+      listenable: Listenable.merge([
+        settings,
+        game,
+        widget.timer.modeListenable,
+      ]),
       builder: (context, _) {
         final look = settings.look;
         // Sin la cantidad por toque en la barra, cada toque cuenta 1.
@@ -315,7 +328,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               game.toggleRotation,
             ),
           ],
-          timer: settings.showTimer
+          timer: settings.showTimer || widget.timer.chess
               ? TimerButton(
                   timer: widget.timer,
                   look: look,
@@ -357,6 +370,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
               bar: bar,
               lifeChangeAmount: amount,
               onLifeChanged: _onLifeChanged,
+              timer: widget.timer,
             ),
           ),
         );

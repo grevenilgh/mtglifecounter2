@@ -41,6 +41,9 @@ class AppSettings extends ChangeNotifier {
     _roundMinutes = _prefs.getInt(_kRoundMinutes) ?? 50;
     _timerWarning = _prefs.getBool(_kTimerWarning) ?? true;
     _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
+    // Quien ya tenía el reloj de ajedrez por defecto lo tiene activado.
+    _chessEnabled =
+        _prefs.getBool(_kChessEnabled) ?? _timerMode == TimerMode.chess;
     _showStepper = _prefs.getBool(_kShowStepper) ?? false;
     _showHistory = _prefs.getBool(_kShowHistory) ?? true;
     _welcomeDone = _prefs.getBool(_kWelcomeDone) ?? false;
@@ -100,6 +103,7 @@ class AppSettings extends ChangeNotifier {
   static const _kRoundMinutes = 'roundMinutes';
   static const _kTimerWarning = 'timerWarning';
   static const _kTimerVibrate = 'timerVibrate';
+  static const _kChessEnabled = 'chessEnabled';
 
   /// Límites de la duración de la ronda, en minutos.
   static const int minRoundMinutes = 5;
@@ -135,6 +139,7 @@ class AppSettings extends ChangeNotifier {
   late int _roundMinutes;
   late bool _timerWarning;
   late bool _timerVibrate;
+  late bool _chessEnabled;
   late bool _animations;
   late bool _showStepper;
   late bool _showHistory;
@@ -300,17 +305,37 @@ class AppSettings extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Si la barra enseña el temporizador de ronda.
-  bool get showTimer => _showTimer;
+  /// Si la barra enseña el temporizador de ronda. Con el reloj de ajedrez
+  /// siempre: en él se pone el tiempo y se pausa.
+  bool get showTimer => _showTimer || chessClock;
   TimerMode get timerMode => _timerMode;
 
-  /// Duración de la ronda en la cuenta atrás (50 minutos si no se toca).
+  /// Si el reloj empieza por defecto como reloj de ajedrez.
+  bool get chessClock => _timerMode == TimerMode.chess;
+
+  /// Si se puede usar el reloj de ajedrez (desactivado si no se toca): sin
+  /// esto no sale «Ajedrez» ni en Ajustes ni en el reloj de la barra.
+  bool get chessEnabled => _chessEnabled;
+
+  /// Al quitarlo, si el reloj empezaba en ajedrez vuelve a la cuenta atrás.
+  set chessEnabled(bool value) {
+    _chessEnabled = value;
+    _prefs.setBool(_kChessEnabled, value);
+    if (!value && _timerMode == TimerMode.chess) {
+      _timerMode = TimerMode.countdown;
+      _prefs.setString(_kTimerMode, _timerMode.name);
+    }
+    notifyListeners();
+  }
+
+  /// Duración de la ronda en la cuenta atrás (50 minutos si no se toca). En
+  /// el reloj de ajedrez, la mitad para cada uno.
   int get roundMinutes => _roundMinutes;
 
-  /// Avisar a falta de 5 minutos.
+  /// Avisar a falta de 5 minutos (en el reloj de ajedrez, de 2 a cada uno).
   bool get timerWarning => _timerWarning;
 
-  /// Vibrar al acabar el tiempo.
+  /// Vibrar al acabar el tiempo (y, en el reloj de ajedrez, al pulsar).
   bool get timerVibrate => _timerVibrate;
 
   set showTimer(bool value) {

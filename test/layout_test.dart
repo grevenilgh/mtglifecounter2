@@ -17,6 +17,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
+import 'package:mtglifecounter/chess_clock.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/main.dart';
@@ -123,6 +124,31 @@ final List<Scenario> scenarios = [
       ..change(-1019)
       ..commit();
     app.game.bottom.change(1998);
+  }),
+  // El reloj de ajedrez: un botón en cada panel que le quita sitio al
+  // historial. El de abajo se ha pasado y sigue contando; arriba, girado.
+  Scenario('ajedrez', (app) {
+    app.settings
+      ..chessEnabled = true
+      ..timerMode = TimerMode.chess;
+    app.timer.mode = TimerMode.chess;
+    for (var i = 0; i < 12; i++) {
+      app.game.top
+        ..change(i.isEven ? -3 : 2)
+        ..commit();
+    }
+    app.game.toggleRotation();
+    app.timer.press(Seat.top);
+    app.now = app.now.add(const Duration(minutes: 26, seconds: 5));
+  }),
+  // El reloj de ajedrez sin historial: el botón queda suelto en la esquina.
+  Scenario('ajedrez sin historial', textScale: 2, (app) {
+    app.settings
+      ..chessEnabled = true
+      ..timerMode = TimerMode.chess
+      ..showHistory = false;
+    app.timer.mode = TimerMode.chess;
+    app.game.bottom.change(-1019);
   }),
   // El tamaño de letra del sistema al máximo (accesibilidad).
   Scenario('texto 200%', textScale: 2, (app) {
@@ -379,6 +405,28 @@ CounterReport checkCounter(WidgetTester tester) {
       report.issues.add('$name: la barra tapa el historial');
     }
 
+    // El botón del reloj de ajedrez, si está: dentro del panel y sin tapar
+    // nada.
+    final clockFinder = find.descendant(
+      of: panelFinder,
+      matching: find.byType(ChessClockButton),
+    );
+    if (clockFinder.evaluate().isNotEmpty) {
+      final clock = tester.getRect(clockFinder);
+      if (!_contains(panel, clock)) {
+        report.issues.add('$name: el reloj se sale');
+      }
+      if (_overlaps(clock, bar)) {
+        report.issues.add('$name: la barra tapa el reloj');
+      }
+      if (_overlaps(clock, glyphs)) {
+        report.issues.add('$name: el reloj pisa el número');
+      }
+      if (_overlaps(clock, plus) || _overlaps(clock, minus)) {
+        report.issues.add('$name: el reloj pisa el + o el −');
+      }
+    }
+
     final bubble = find.descendant(
       of: panelFinder,
       matching: _private('_Bubble'),
@@ -499,6 +547,56 @@ void main() {
               await tester.pump(const Duration(milliseconds: 800));
               expect(player.life, 19, reason: 'el historial del panel $i');
               expect(player.history, ['+1 = 21', '-2 = 19']);
+            }
+            await tearDownApp(tester, app);
+          });
+        }
+      }
+    }
+  });
+
+  group('el reloj de ajedrez pasa el turno sin tocar las vidas', () {
+    for (final screen in screens.where((s) => s.supported)) {
+      for (final theme in themes) {
+        for (final history in [true, false]) {
+          final name =
+              '${screen.name} · ${theme.$1}'
+              '${history ? '' : ' · sin historial'}';
+          testWidgets(name, (tester) async {
+            final app = await pumpApp(
+              tester,
+              screen,
+              theme,
+              scenario: Scenario('ajedrez', (app) {
+                app.settings
+                  ..chessEnabled = true
+                  ..timerMode = TimerMode.chess
+                  ..showHistory = history;
+                app.timer.mode = TimerMode.chess;
+                app.game.toggleRotation();
+              }),
+            );
+            Finder clock(int i) => find.descendant(
+              of: find.byType(PlayerCounter).at(i),
+              matching: find.byType(ChessClockButton),
+            );
+            // Pulsa el de arriba (quien no empieza): le toca al de abajo.
+            await tester.tap(clock(0));
+            await tester.pump();
+            expect(app.timer.turn, Seat.bottom);
+            // El de arriba ya no tiene el turno: su botón no hace nada.
+            await tester.tap(clock(0));
+            await tester.pump();
+            expect(app.timer.turn, Seat.bottom);
+            // Una pulsación larga tampoco suma ni resta.
+            await tester.longPress(clock(1));
+            await tester.pump(const Duration(milliseconds: 800));
+            await tester.tap(clock(1));
+            await tester.pump(const Duration(milliseconds: 800));
+            expect(app.timer.turn, Seat.top);
+            for (final player in [app.game.top, app.game.bottom]) {
+              expect(player.life, 20);
+              expect(player.history, isEmpty);
             }
             await tearDownApp(tester, app);
           });

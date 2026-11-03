@@ -10,6 +10,7 @@ import 'package:mtglifecounter/main.dart';
 import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/timer_view.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -214,8 +215,9 @@ void main() {
 
     testWidgets('al llegar a cero avisa una sola vez', (tester) async {
       var finishedCalls = 0;
+      // Por defecto (lo de Ajustes), para que al reiniciar siga en 5.
       final timer = RoundTimer(prefs, clock: () => now)
-        ..setRoundLength(const Duration(minutes: 5))
+        ..setDefaults(TimerMode.countdown, const Duration(minutes: 5))
         ..onFinished = () => finishedCalls++;
       timer.start();
       now = now.add(const Duration(minutes: 6));
@@ -256,6 +258,239 @@ void main() {
       );
     });
   });
+
+  group('Reloj de ajedrez', () {
+    late DateTime now;
+    late SharedPreferences prefs;
+
+    setUp(() async {
+      now = DateTime(2026, 11, 3, 18);
+      SharedPreferences.setMockInitialValues({});
+      prefs = await SharedPreferences.getInstance();
+    });
+
+    RoundTimer chessTimer({int minutes = 50}) {
+      final timer = RoundTimer(
+        prefs,
+        mode: TimerMode.chess,
+        roundLength: Duration(minutes: minutes),
+        clock: () => now,
+      );
+      addTearDown(timer.dispose);
+      return timer;
+    }
+
+    test('reparte la ronda y lo arranca quien no empieza', () {
+      final timer = chessTimer(minutes: 45);
+      expect(timer.leftFor(Seat.top), const Duration(minutes: 22, seconds: 30));
+      expect(timer.turn, isNull);
+
+      // Desde la hoja no se puede arrancar: no se sabe a quién le toca.
+      timer.start();
+      expect(timer.running, isFalse);
+
+      // Pulsa el de arriba: empieza el de abajo.
+      expect(timer.press(Seat.top), isTrue);
+      expect(timer.turn, Seat.bottom);
+      now = now.add(const Duration(minutes: 3));
+      expect(
+        timer.leftFor(Seat.bottom),
+        const Duration(minutes: 19, seconds: 30),
+      );
+      expect(timer.leftFor(Seat.top), const Duration(minutes: 22, seconds: 30));
+      expect(timer.totalLeft, const Duration(minutes: 42));
+    });
+
+    test('solo vale el botón del que tiene el turno', () {
+      final timer = chessTimer()..press(Seat.top);
+      now = now.add(const Duration(minutes: 1));
+      expect(timer.press(Seat.top), isFalse); // ya ha pasado
+      expect(timer.turn, Seat.bottom);
+
+      expect(timer.press(Seat.bottom), isTrue);
+      expect(timer.turn, Seat.top);
+      now = now.add(const Duration(minutes: 2));
+      expect(timer.leftFor(Seat.bottom), const Duration(minutes: 24));
+      expect(timer.leftFor(Seat.top), const Duration(minutes: 23));
+    });
+
+    test('la pausa para a los dos y sigue el mismo', () {
+      final timer = chessTimer()..press(Seat.bottom); // empieza arriba
+      now = now.add(const Duration(minutes: 5));
+      timer.pause();
+      now = now.add(const Duration(minutes: 10)); // en pausa no cuenta
+      expect(timer.press(Seat.top), isFalse); // en pausa no pasa el turno
+      expect(timer.leftFor(Seat.top), const Duration(minutes: 20));
+
+      timer.start();
+      expect(timer.turn, Seat.top);
+      now = now.add(const Duration(minutes: 1));
+      expect(timer.leftFor(Seat.top), const Duration(minutes: 19));
+      expect(timer.leftFor(Seat.bottom), const Duration(minutes: 25));
+    });
+
+    testWidgets('quien se pasa sigue contando y avisa una vez', (tester) async {
+      var flags = 0;
+      // Sin el addTearDown de chessTimer: hay que pararlo antes de que acabe
+      // el test, o su temporizador quedaría pendiente.
+      final timer = RoundTimer(
+        prefs,
+        mode: TimerMode.chess,
+        roundLength: const Duration(minutes: 10),
+        clock: () => now,
+      )..onFinished = () => flags++;
+      timer.press(Seat.top);
+      now = now.add(const Duration(minutes: 5, seconds: 42));
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      expect(timer.running, isTrue);
+      expect(timer.overtime(Seat.bottom), isTrue);
+      expect(formatSignedClock(timer.leftFor(Seat.bottom)), '−0:42');
+      expect(flags, 1);
+
+      // Pasa el turno y al de arriba también se le acaba: otro aviso.
+      timer.press(Seat.bottom);
+      now = now.add(const Duration(minutes: 6));
+      await tester.pump(const Duration(seconds: 1));
+      expect(flags, 2);
+      expect(formatSignedClock(timer.totalLeft), '−1:42');
+      timer.dispose();
+    });
+
+    test('poco tiempo a falta de 2 minutos', () {
+      final timer = chessTimer(minutes: 10)..press(Seat.top);
+      now = now.add(const Duration(minutes: 2, seconds: 59));
+      expect(timer.warningFor(Seat.bottom), isFalse);
+      now = now.add(const Duration(seconds: 1));
+      expect(timer.warningFor(Seat.bottom), isTrue);
+      expect(timer.warningFor(Seat.top), isFalse);
+    });
+
+    test('sobrevive a cerrar la app y se reinicia entero', () {
+      final timer = chessTimer()..press(Seat.top);
+      now = now.add(const Duration(minutes: 4));
+      timer.press(Seat.bottom);
+      now = now.add(const Duration(minutes: 1));
+
+      final reopened = chessTimer();
+      expect(reopened.turn, Seat.top);
+      expect(reopened.running, isTrue);
+      expect(reopened.leftFor(Seat.bottom), const Duration(minutes: 21));
+      expect(reopened.leftFor(Seat.top), const Duration(minutes: 24));
+
+      reopened.reset();
+      expect(reopened.turn, isNull);
+      expect(reopened.started, isFalse);
+      expect(reopened.leftFor(Seat.bottom), const Duration(minutes: 25));
+    });
+
+    test('lo de Ajustes no toca el reloj empezado: llega al reiniciar', () {
+      final timer = RoundTimer(prefs, clock: () => now)..start();
+      addTearDown(timer.dispose);
+      now = now.add(const Duration(minutes: 5));
+      timer.setDefaults(TimerMode.chess, const Duration(minutes: 40));
+      expect(timer.mode, TimerMode.countdown);
+      expect(timer.roundLength, const Duration(minutes: 50));
+      expect(timer.remaining, const Duration(minutes: 45));
+
+      // Cerrar y abrir la app tampoco lo cambia.
+      final reopened = RoundTimer(
+        prefs,
+        mode: TimerMode.chess,
+        roundLength: const Duration(minutes: 40),
+        clock: () => now,
+      );
+      addTearDown(reopened.dispose);
+      expect(reopened.mode, TimerMode.countdown);
+      expect(reopened.roundLength, const Duration(minutes: 50));
+
+      reopened.reset();
+      expect(reopened.mode, TimerMode.chess);
+      expect(reopened.roundLength, const Duration(minutes: 40));
+      expect(reopened.leftFor(Seat.top), const Duration(minutes: 20));
+    });
+
+    test('sin empezar, lo de Ajustes llega al momento', () {
+      final timer = RoundTimer(prefs, clock: () => now);
+      addTearDown(timer.dispose);
+      timer.setDefaults(TimerMode.chess, const Duration(minutes: 30));
+      expect(timer.mode, TimerMode.chess);
+      expect(timer.share, const Duration(minutes: 15));
+    });
+
+    test('fuera del modo ajedrez los botones no hacen nada', () {
+      final timer = RoundTimer(prefs, clock: () => now);
+      addTearDown(timer.dispose);
+      expect(timer.press(Seat.top), isFalse);
+      expect(timer.started, isFalse);
+    });
+
+    test('desactivado por defecto; al quitarlo vuelve a la cuenta atrás', () {
+      final settings = AppSettings(prefs);
+      expect(settings.chessEnabled, isFalse);
+      settings
+        ..chessEnabled = true
+        ..timerMode = TimerMode.chess;
+      settings.chessEnabled = false;
+      expect(settings.timerMode, TimerMode.countdown);
+    });
+
+    testWidgets('en la hoja de la barra, Ajedrez solo si está activado', (
+      tester,
+    ) async {
+      final settings = AppSettings(prefs);
+      final timer = RoundTimer(prefs, clock: () => now)..start();
+      now = now.add(const Duration(minutes: 5));
+      timer.pause();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () =>
+                  showTimerSheet(context, timer: timer, settings: settings),
+              child: const Text('Reloj'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Reloj'));
+      await tester.pumpAndSettle();
+      expect(find.text('Ajedrez'), findsNothing);
+
+      settings.chessEnabled = true;
+      await tester.pumpAndSettle();
+      // Con el reloj empezado, pasar a ajedrez pregunta y lo reinicia.
+      await tester.tap(find.text('Ajedrez'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancelar'));
+      await tester.pumpAndSettle();
+      expect(timer.mode, TimerMode.countdown);
+      expect(timer.started, isTrue);
+
+      await tester.tap(find.text('Ajedrez'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Reiniciar y cambiar'));
+      await tester.pumpAndSettle();
+      expect(timer.mode, TimerMode.chess);
+      expect(timer.started, isFalse);
+      // Lo de Ajustes no cambia: es lo de por defecto.
+      expect(settings.timerMode, TimerMode.countdown);
+      timer.dispose();
+    });
+  });
+
+  test(
+    'con el reloj de ajedrez la barra enseña siempre el temporizador',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final settings = AppSettings(await SharedPreferences.getInstance())
+        ..showTimer = false;
+      expect(settings.showTimer, isFalse);
+      settings.timerMode = TimerMode.chess;
+      expect(settings.showTimer, isTrue);
+      expect(settings.chessClock, isTrue);
+    },
+  );
 
   test('Old School lleva los marcos azul y blanco', () {
     expect(Skin.oldSchool.cardFrames, (CardFrame.azul, CardFrame.blanco));
