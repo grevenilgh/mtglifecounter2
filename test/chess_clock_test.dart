@@ -428,6 +428,24 @@ void main() {
       await close(tester);
     });
 
+    for (final theme in AppTheme.values) {
+      testWidgets('en marcha no pinta más que el segundero (${theme.name})', (
+        tester,
+      ) async {
+        await pumpApp(tester, theme: theme, before: enableChess);
+        await tester.tap(clockOf(0));
+        await settle(tester);
+        // Entre segundo y segundo no hay nada que dibujar: el brillo y la
+        // arena cambian con el segundero, no con una animación sin fin (que
+        // tenía el móvil a 60 fotogramas por segundo toda la ronda).
+        for (var i = 0; i < 30; i++) {
+          await tester.pump(const Duration(milliseconds: 30));
+          expect(tester.binding.hasScheduledFrame, isFalse);
+        }
+        await close(tester);
+      });
+    }
+
     testWidgets('en el Old Border, el reloj de la barra en pausa sigue siendo '
         'la pastilla de maná', (tester) async {
       await pumpApp(tester, theme: AppTheme.classic);
@@ -595,7 +613,7 @@ void main() {
 }
 
 /// Deja que acaben las transiciones y los diálogos. No vale pumpAndSettle:
-/// con el reloj de ajedrez en marcha, el brillo del botón late sin parar.
+/// con el reloj en marcha, el segundero no deja de pedir fotogramas.
 Future<void> settle(WidgetTester tester) async {
   for (var i = 0; i < 5; i++) {
     await tester.pump(const Duration(milliseconds: 200));

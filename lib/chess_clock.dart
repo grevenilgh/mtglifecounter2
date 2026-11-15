@@ -72,19 +72,12 @@ class ChessClockButton extends StatefulWidget {
   State<ChessClockButton> createState() => _ChessClockButtonState();
 }
 
-class _ChessClockButtonState extends State<ChessClockButton>
-    with SingleTickerProviderStateMixin {
-  // Late mientras corre: el brillo y la arena que cae.
-  late final AnimationController _pulse = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1600),
-  );
-
-  @override
-  void dispose() {
-    _pulse.dispose();
-    super.dispose();
-  }
+class _ChessClockButtonState extends State<ChessClockButton> {
+  // El brillo que late, a saltos de uno por segundo, con el segundero: así no
+  // pinta más fotogramas que el propio reloj. Con un AnimationController que
+  // se repetía, el reloj de ajedrez en marcha tenía el móvil a 60 fotogramas
+  // por segundo y con tres cuartos del procesador toda la ronda.
+  static const List<double> _breath = [0.15, 0.55, 1, 0.55];
 
   void _press() {
     if (widget.timer.press(widget.seat) && widget.vibrate) {
@@ -120,11 +113,10 @@ class _ChessClockButtonState extends State<ChessClockButton>
             ? 0.0
             : (left.inMilliseconds / share).clamp(0.0, 1.0);
         final animate = widget.animations && phase == _Phase.run;
-        if (animate && !_pulse.isAnimating) {
-          _pulse.repeat();
-        } else if (!animate && _pulse.isAnimating) {
-          _pulse.stop();
-        }
+        final second = left.inSeconds.abs();
+        final glow = animate ? _breath[second % _breath.length] : 0.5;
+        // La arena baja una raya por segundo (el dibujo se repite cada 3).
+        final flow = animate ? (second % 3) / 8 : null;
         final label = formatSignedClock(left);
         final state = switch (phase) {
           _Phase.idle => 'pulsa para que empiece el otro',
@@ -141,37 +133,32 @@ class _ChessClockButtonState extends State<ChessClockButton>
           child: GestureDetector(
             onTap: _press,
             behavior: HitTestBehavior.opaque,
+            // Tamaño fijo y su propia capa: cada segundo se repinta solo el
+            // botón, no el panel.
             child: SizedBox.fromSize(
               size: size,
-              child: AnimatedBuilder(
-                animation: _pulse,
-                builder: (context, _) {
-                  // De 0 a 1 y vuelta, una vez por vuelta del controlador.
-                  final glow = animate
-                      ? 0.5 - 0.5 * cos(_pulse.value * 2 * pi)
-                      : 0.5;
-                  return look.isClassic
-                      ? _Hourglass(
-                          phase: phase,
-                          over: over,
-                          warn: warn,
-                          fraction: over ? 0 : fraction,
-                          label: label,
-                          glow: glow,
-                          flow: animate ? _pulse.value : null,
-                          darkInk: widget.darkInk,
-                        )
-                      : _Chip(
-                          look: look,
-                          color: widget.color,
-                          phase: phase,
-                          over: over,
-                          warn: warn,
-                          fraction: fraction,
-                          label: label,
-                          glow: glow,
-                        );
-                },
+              child: RepaintBoundary(
+                child: look.isClassic
+                    ? _Hourglass(
+                        phase: phase,
+                        over: over,
+                        warn: warn,
+                        fraction: over ? 0 : fraction,
+                        label: label,
+                        glow: glow,
+                        flow: flow,
+                        darkInk: widget.darkInk,
+                      )
+                    : _Chip(
+                        look: look,
+                        color: widget.color,
+                        phase: phase,
+                        over: over,
+                        warn: warn,
+                        fraction: fraction,
+                        label: label,
+                        glow: glow,
+                      ),
               ),
             ),
           ),
