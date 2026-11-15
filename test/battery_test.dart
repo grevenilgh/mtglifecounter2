@@ -130,7 +130,8 @@ void main() {
       app.timer.start();
       await tester.pump();
     });
-    scenario('con el tiempo acabado', ticking, (tester, app) async {
+    // Acabado, el reloj se para en 0:00: no gasta nada.
+    scenario('con el tiempo acabado', still, (tester, app) async {
       app.settings.showTimer = true;
       app.timer.start();
       app.now = app.now.add(const Duration(minutes: 51));

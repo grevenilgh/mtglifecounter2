@@ -32,7 +32,8 @@ enum _Phase {
 /// El botón del reloj de ajedrez de un jugador, abajo a la derecha de su
 /// panel. Enseña lo que le queda; al pulsarlo se para su reloj y corre el
 /// del otro. Al que le toca le sobresale y brilla; al que espera se le ve
-/// hundido. Con poco tiempo se pone ámbar y, si se pasa, rojo y en negativo.
+/// hundido. Con poco tiempo se pone ámbar y, si se le acaba, se queda en 0:00
+/// en rojo: el reloj se para hasta que pulse para pasar el turno al otro.
 ///
 /// En el borde antiguo es un reloj de arena de madera y latón: de pie corre
 /// la arena y tumbado espera.
@@ -89,6 +90,15 @@ class _ChessClockButtonState extends State<ChessClockButton> {
   _Phase get _phase {
     final timer = widget.timer;
     if (timer.turn == null) return _Phase.idle;
+    // Al que tiene el turno se le ha acabado: le sigue tocando (tiene que
+    // pulsar para pasarlo), aunque el reloj esté parado.
+    if (timer.waitingForPress) {
+      return timer.turn == widget.seat ? _Phase.run : _Phase.wait;
+    }
+    // Se les ha acabado a los dos: los dos esperan, en rojo.
+    if (timer.outOfTime(Seat.top) && timer.outOfTime(Seat.bottom)) {
+      return _Phase.wait;
+    }
     if (!timer.running) return _Phase.pause;
     return timer.turn == widget.seat ? _Phase.run : _Phase.wait;
   }
@@ -103,7 +113,7 @@ class _ChessClockButtonState extends State<ChessClockButton> {
         final seat = widget.seat;
         final phase = _phase;
         final left = timer.leftFor(seat);
-        final over = phase != _Phase.idle && timer.overtimeFor(seat);
+        final over = phase != _Phase.idle && timer.outOfTime(seat);
         final warn =
             widget.warningEnabled &&
             phase == _Phase.run &&
@@ -112,16 +122,19 @@ class _ChessClockButtonState extends State<ChessClockButton> {
         final fraction = share == 0
             ? 0.0
             : (left.inMilliseconds / share).clamp(0.0, 1.0);
-        final animate = widget.animations && phase == _Phase.run;
-        final second = left.inSeconds.abs();
+        // Solo se anima mientras corre su reloj (sin tiempo no corre).
+        final animate =
+            widget.animations && phase == _Phase.run && timer.running;
+        final second = left.inSeconds;
         final glow = animate ? _breath[second % _breath.length] : 0.5;
         // La arena baja una raya por segundo (el dibujo se repite cada 3).
         final flow = animate ? (second % 3) / 8 : null;
-        final label = formatSignedClock(left);
+        final label = formatClock(left);
         final state = switch (phase) {
           _Phase.idle => 'pulsa para que empiece el otro',
-          _Phase.run => over ? 'le toca y se ha pasado' : 'le toca',
-          _Phase.wait => over ? 'esperando, se ha pasado' : 'esperando',
+          _Phase.run =>
+            over ? 'sin tiempo: pulsa para pasar el turno' : 'le toca',
+          _Phase.wait => over ? 'sin tiempo' : 'esperando',
           _Phase.pause => 'en pausa',
         };
         final who = seat == Seat.top ? 'de arriba' : 'de abajo';

@@ -8,8 +8,8 @@ import 'package:mtglifecounter/themed_dialog.dart';
 import 'package:mtglifecounter/themed_style.dart';
 
 /// El reloj de la barra central. Se pone ámbar a falta de 5 minutos (si el
-/// aviso está activado) y rojo al acabar, contando en negativo lo que se
-/// pasan. En el reloj de ajedrez enseña lo que les queda entre los dos.
+/// aviso está activado) y rojo al acabar, parado en 0:00. En el reloj de
+/// ajedrez enseña lo que les queda entre los dos.
 ///
 /// No parpadea ni se anima: cambia una vez por segundo y nada más, porque la
 /// app pasa el día encendida en la mesa (un parpadeo sin fin la tenía a 60
@@ -38,13 +38,19 @@ class TimerButton extends StatelessWidget {
         listenable: timer,
         builder: (context, _) {
           // En el reloj de ajedrez la barra se pone roja cuando se les ha
-          // acabado a los dos, pero no se para: cada uno sigue con su botón.
+          // acabado a los dos.
           final chess = timer.chess;
           final finished = chess
-              ? timer.started && timer.totalLeft <= Duration.zero
+              ? timer.started && timer.totalLeft == Duration.zero
               : timer.finished;
           final warning = warningEnabled && timer.warning;
-          final paused = !timer.running && timer.started;
+          // Parado por haberse acabado el tiempo no es una pausa: sin el
+          // icono de pausa.
+          final paused =
+              !timer.running &&
+              timer.started &&
+              !finished &&
+              !timer.waitingForPress;
           final Color background;
           final Color foreground;
           if (finished) {
@@ -65,16 +71,13 @@ class TimerButton extends StatelessWidget {
                 : Colors.white.withValues(alpha: 0.1);
             foreground = Colors.white;
           }
-          final label = chess
-              ? formatSignedClock(timer.totalLeft)
-              : timerLabel(timer);
+          final label = timerLabel(timer);
           return Semantics(
             button: true,
             label: switch (timer.mode) {
               TimerMode.stopwatch => 'Cronómetro: $label',
               TimerMode.chess => 'Reloj de ajedrez, lo que queda: $label',
-              TimerMode.countdown when finished =>
-                'Se acabó el tiempo, pasados ${formatClock(timer.shown)}',
+              TimerMode.countdown when finished => 'Se acabó el tiempo',
               TimerMode.countdown => 'Temporizador de ronda: $label',
             },
             child: GestureDetector(
@@ -259,18 +262,19 @@ class _TimerSheet extends StatelessWidget {
     final mode = timer.mode;
     final chess = timer.chess;
     final finished = chess
-        ? timer.started && timer.totalLeft <= Duration.zero
+        ? timer.started && timer.totalLeft == Duration.zero
         : timer.finished;
     final warning = settings.timerWarning && timer.warning;
     final turn = timer.turn;
+    final whose = turn == Seat.top ? 'arriba' : 'abajo';
     final state = chess && turn == null
         ? 'Pulsa el botón de quien no empieza'
-        : timer.running && chess
-        ? 'En marcha · le toca al de ${turn == Seat.top ? 'arriba' : 'abajo'}'
         : finished
-        ? timer.running
-              ? 'Se acabó el tiempo: lo que os habéis pasado'
-              : 'Se acabó el tiempo (en pausa)'
+        ? 'Se acabó el tiempo'
+        : timer.waitingForPress
+        ? 'Al de $whose se le ha acabado: que pase el turno'
+        : timer.running && chess
+        ? 'En marcha · le toca al de $whose'
         : timer.running
         ? 'En marcha'
         : timer.started
@@ -341,14 +345,12 @@ class _TimerSheet extends StatelessWidget {
                       style: style.titleStyle,
                     ),
                     const SizedBox(height: 4),
-                    // Con lo que se pasan puede ser «−1:02:03»: se encoge
-                    // para caber en los móviles estrechos.
+                    // El cronómetro puede pasar de la hora («1:02:03»): se
+                    // encoge para caber en los móviles estrechos.
                     FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        chess
-                            ? formatSignedClock(timer.totalLeft)
-                            : timerLabel(timer),
+                        timerLabel(timer),
                         style: style.numberStyle(
                           chess ? 72 : 84,
                           finished
@@ -449,11 +451,12 @@ class _TimerSheet extends StatelessWidget {
                             kind: ButtonKind.accent,
                             // El reloj de ajedrez lo arranca el botón de un
                             // jugador; desde aquí solo se pausa y se reanuda.
-                            onTap: chess && turn == null
-                                ? null
-                                : timer.running
+                            // Acabado el tiempo, solo se reinicia.
+                            onTap: timer.running
                                 ? timer.pause
-                                : timer.start,
+                                : timer.canStart
+                                ? timer.start
+                                : null,
                           ),
                         ),
                       ],
@@ -470,7 +473,7 @@ class _TimerSheet extends StatelessWidget {
 }
 
 /// Lo de un jugador en la hoja del reloj de ajedrez: lo que le queda y si
-/// le toca, espera o se ha pasado. Con los colores del tema; el que tiene el
+/// le toca, espera o se ha quedado sin tiempo. Con los colores del tema; el que tiene el
 /// turno, resaltado con el color de lo principal.
 class _SeatCard extends StatelessWidget {
   const _SeatCard({
@@ -492,12 +495,12 @@ class _SeatCard extends StatelessWidget {
     final classic = style.look.isClassic;
     final turn = timer.turn;
     final mine = turn == seat;
-    final over = turn != null && timer.overtimeFor(seat);
+    final over = turn != null && timer.outOfTime(seat);
     final warn = warningEnabled && mine && timer.warningFor(seat);
     final state = turn == null
         ? 'Preparado'
         : over
-        ? 'Se ha pasado'
+        ? 'Sin tiempo'
         : mine
         ? (timer.running ? 'Le toca' : 'Le toca (en pausa)')
         : 'Esperando';
@@ -546,7 +549,7 @@ class _SeatCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
-              formatSignedClock(timer.leftFor(seat)),
+              formatClock(timer.leftFor(seat)),
               style: style.numberStyle(
                 34,
                 over

@@ -105,8 +105,13 @@ class AppSettings extends ChangeNotifier {
   static const _kTimerVibrate = 'timerVibrate';
   static const _kChessEnabled = 'chessEnabled';
 
-  /// Límites de la duración de la ronda, en minutos.
-  static const int minRoundMinutes = 5;
+  /// Límites de la duración de la ronda, en minutos. Para probar el final
+  /// de la ronda en el móvil sin esperar 5 minutos, una compilación con
+  /// `--dart-define=MIN_ROUND=1` deja bajarla a 1.
+  static const int minRoundMinutes = int.fromEnvironment(
+    'MIN_ROUND',
+    defaultValue: 5,
+  );
   static const int maxRoundMinutes = 120;
   static const _kAnimations = 'animations';
   static const _kShowStepper = 'showStepper';

@@ -49,18 +49,6 @@ void main() {
   );
 
   group('RoundTimer en modo ajedrez', () {
-    test('formatSignedClock', () {
-      expect(formatSignedClock(Duration.zero), '0:00');
-      expect(formatSignedClock(const Duration(minutes: 1, seconds: 5)), '1:05');
-      // Nada más pasarse ya sale en negativo.
-      expect(formatSignedClock(const Duration(milliseconds: -400)), '−0:01');
-      expect(formatSignedClock(const Duration(seconds: -42)), '−0:42');
-      expect(
-        formatSignedClock(const Duration(hours: -1, seconds: -1)),
-        '−1:00:01',
-      );
-    });
-
     test('el aviso de cambio de modo no salta con cada segundo', () {
       final timer = newTimer(mode: TimerMode.chess);
       addTearDown(timer.dispose);
@@ -129,7 +117,7 @@ void main() {
         ..onFinished = () => again++;
       await tester.pump(const Duration(seconds: 2));
       expect(again, 0);
-      expect(reopened.overtimeFor(Seat.bottom), isTrue);
+      expect(reopened.outOfTime(Seat.bottom), isTrue);
 
       // Tras reiniciar, vuelve a avisar.
       reopened
@@ -303,7 +291,7 @@ void main() {
       await close(tester);
     });
 
-    testWidgets('al pasarse vibra tres veces y sale en rojo y en negativo', (
+    testWidgets('al acabarse vibra tres veces y se queda en 0:00 en rojo', (
       tester,
     ) async {
       await pumpApp(tester, before: enableChess);
@@ -315,7 +303,7 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       expect(vibrations, [300, 300, 300]);
       expect(
-        find.descendant(of: clockOf(1), matching: find.text('−0:42')),
+        find.descendant(of: clockOf(1), matching: find.text('0:00')),
         findsOneWidget,
       );
       expect(
@@ -325,13 +313,20 @@ void main() {
         ),
         findsOneWidget,
       );
-      // Sigue contando.
+      // No sigue contando: el reloj se para y no pide fotogramas.
+      expect(timer.running, isFalse);
       now = now.add(const Duration(seconds: 10));
       await tester.pump(const Duration(seconds: 1));
       expect(
-        find.descendant(of: clockOf(1), matching: find.text('−0:52')),
+        find.descendant(of: clockOf(1), matching: find.text('0:00')),
         findsOneWidget,
       );
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      // Con su botón pasa el turno al otro, que sigue con lo suyo.
+      await tester.tap(clockOf(1));
+      await tester.pump();
+      expect(timer.turn, Seat.top);
+      expect(timer.running, isTrue);
       await close(tester);
     });
 

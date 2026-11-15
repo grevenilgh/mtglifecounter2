@@ -577,8 +577,8 @@ class SettingsPage extends StatelessWidget {
               TimerMode.chess =>
                 'El tiempo de la ronda se reparte entre los dos. Cada uno '
                     'tiene un botón en su panel: al pulsarlo se para su reloj '
-                    'y corre el del otro. Lo arranca quien no empieza. Quien '
-                    'se pasa sigue contando, en rojo.',
+                    'y corre el del otro. Lo arranca quien no empieza. A '
+                    'quien se le acaba se queda en 0:00, en rojo.',
             }),
             if (mode != TimerMode.stopwatch) ...[
               const SizedBox(height: 8),

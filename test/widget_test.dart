@@ -206,18 +206,10 @@ void main() {
       now = now.add(const Duration(minutes: 26));
       expect(timer.warning, isTrue);
       now = now.add(const Duration(minutes: 5));
-      // Acabada sigue en marcha y cuenta lo que se pasan, en negativo.
+      // Acabada se queda en 0:00, sin contar lo que se pasan.
       expect(timer.finished, isTrue);
-      expect(timer.running, isTrue);
-      expect(timer.shown, const Duration(minutes: 1));
-      expect(timerLabel(timer), '−1:00');
-      // Y se puede pausar y seguir.
-      timer.pause();
-      now = now.add(const Duration(minutes: 10));
-      expect(timerLabel(timer), '−1:00');
-      timer.start();
-      now = now.add(const Duration(seconds: 30));
-      expect(timerLabel(timer), '−1:30');
+      expect(timer.shown, Duration.zero);
+      expect(timerLabel(timer), '0:00');
       expect(timer.warning, isFalse);
     });
 
@@ -233,8 +225,12 @@ void main() {
       now = now.add(const Duration(seconds: 3));
       await tester.pump(const Duration(seconds: 3));
       expect(finishedCalls, 1);
-      expect(timer.running, isTrue);
-      expect(timer.overtime, const Duration(minutes: 1, seconds: 3));
+      // Se ha parado solo en 0:00 y no se puede reanudar: solo reiniciar.
+      expect(timer.running, isFalse);
+      expect(timerLabel(timer), '0:00');
+      expect(timer.canStart, isFalse);
+      timer.start();
+      expect(timer.running, isFalse);
 
       timer.reset();
       expect(timer.started, isFalse);
@@ -339,7 +335,25 @@ void main() {
       expect(timer.leftFor(Seat.bottom), const Duration(minutes: 25));
     });
 
-    testWidgets('quien se pasa sigue contando y avisa una vez', (tester) async {
+    test('abierta horas después, la cuenta atrás está en 0:00 y parada', () {
+      final timer = RoundTimer(prefs, clock: () => now);
+      timer.start();
+      timer.dispose();
+      now = now.add(const Duration(hours: 4, minutes: 50));
+
+      var finishedCalls = 0;
+      final reopened = RoundTimer(prefs, clock: () => now)
+        ..onFinished = () => finishedCalls++;
+      addTearDown(reopened.dispose);
+      expect(reopened.running, isFalse);
+      expect(timerLabel(reopened), '0:00');
+      // El aviso llegaría horas tarde: no sale.
+      expect(finishedCalls, 0);
+    });
+
+    testWidgets('a quien se le acaba se queda en 0:00 y avisa una vez', (
+      tester,
+    ) async {
       var flags = 0;
       // Sin el addTearDown de chessTimer: hay que pararlo antes de que acabe
       // el test, o su temporizador quedaría pendiente.
@@ -353,17 +367,28 @@ void main() {
       now = now.add(const Duration(minutes: 5, seconds: 42));
       await tester.pump(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 1));
-      expect(timer.running, isTrue);
-      expect(timer.overtimeFor(Seat.bottom), isTrue);
-      expect(formatSignedClock(timer.leftFor(Seat.bottom)), '−0:42');
+      // El reloj se para: al de abajo no le queda y le sigue tocando.
+      expect(timer.running, isFalse);
+      expect(timer.outOfTime(Seat.bottom), isTrue);
+      expect(formatClock(timer.leftFor(Seat.bottom)), '0:00');
+      expect(timer.waitingForPress, isTrue);
       expect(flags, 1);
+      // Al otro no se le ha gastado nada, y desde la hoja no se reanuda.
+      expect(timer.leftFor(Seat.top), const Duration(minutes: 5));
+      expect(timer.canStart, isFalse);
+      expect(timer.press(Seat.top), isFalse);
 
-      // Pasa el turno y al de arriba también se le acaba: otro aviso.
-      timer.press(Seat.bottom);
+      // Pasa el turno: corre el de arriba, hasta que también se le acaba.
+      expect(timer.press(Seat.bottom), isTrue);
+      expect(timer.running, isTrue);
       now = now.add(const Duration(minutes: 6));
       await tester.pump(const Duration(seconds: 1));
       expect(flags, 2);
-      expect(formatSignedClock(timer.totalLeft), '−1:42');
+      expect(timer.running, isFalse);
+      expect(timer.totalLeft, Duration.zero);
+      expect(timer.waitingForPress, isFalse);
+      expect(timer.press(Seat.top), isFalse);
+      expect(timer.press(Seat.bottom), isFalse);
       timer.dispose();
     });
 

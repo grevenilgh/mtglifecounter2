@@ -72,7 +72,9 @@ class RoundTimer extends ChangeNotifier {
     }
     final turn = _prefs.getString(_kTurn);
     _turn = Seat.values.where((s) => s.name == turn).firstOrNull;
-    if (running) _tick();
+    // Si se acabó con la app cerrada, se queda parado en 0:00 (sin el aviso,
+    // que llegaría tarde).
+    if (running && !_settle(notify: false)) _tick();
   }
 
   static const _kAccumulated = 'timerAccumulated';
@@ -163,16 +165,13 @@ class RoundTimer extends ChangeNotifier {
     return left.isNegative ? Duration.zero : left;
   }
 
-  /// Lo que enseña el reloj: lo que queda o, en cronómetro, lo que va. Con la
-  /// ronda acabada, lo que se han pasado (ver [overtime]).
-  Duration get shown =>
-      mode == TimerMode.countdown ? (finished ? overtime : remaining) : elapsed;
+  /// Lo que enseña el reloj: lo que queda o, en cronómetro, lo que va.
+  Duration get shown => mode == TimerMode.countdown ? remaining : elapsed;
 
+  /// La cuenta atrás ha llegado a cero. Ahí se para y se queda en 0:00: no
+  /// cuenta lo que se pasan (los turnos extra se cuentan en turnos), y así un
+  /// reloj olvidado no sigue horas en negativo repintando cada segundo.
   bool get finished => mode == TimerMode.countdown && elapsed >= roundLength;
-
-  /// Lo que se han pasado de la ronda: al llegar a cero la cuenta atrás no se
-  /// para, sigue contando en negativo (para los turnos extra).
-  Duration get overtime => finished ? elapsed - roundLength : Duration.zero;
 
   /// Quedan [warningTime] o menos (y aún no se ha acabado).
   bool get warning =>
@@ -187,31 +186,51 @@ class RoundTimer extends ChangeNotifier {
   /// El tiempo de cada jugador: la mitad de la ronda.
   Duration get share => roundLength ~/ 2;
 
-  /// Lo que le queda a [seat]. Sigue bajando de cero: quien se pasa sigue
-  /// contando.
+  /// Lo que le queda a [seat]. No baja de cero: a quien se le acaba se queda
+  /// en 0:00.
   Duration leftFor(Seat seat) {
     final mine = seat == _turn ? _sinceStart : Duration.zero;
-    return share - _spent[seat]! - mine;
+    final left = share - _spent[seat]! - mine;
+    return left.isNegative ? Duration.zero : left;
   }
 
   /// Lo que les queda entre los dos: lo que enseña la barra en el reloj de
-  /// ajedrez. Puede ser negativo.
-  Duration get totalLeft => roundLength - elapsed;
+  /// ajedrez.
+  Duration get totalLeft => leftFor(Seat.top) + leftFor(Seat.bottom);
 
   /// A [seat] se le ha acabado su tiempo.
-  bool overtimeFor(Seat seat) => leftFor(seat) <= Duration.zero;
+  bool outOfTime(Seat seat) => leftFor(seat) == Duration.zero;
 
-  /// A [seat] le quedan [seatWarningTime] o menos (y aún no se ha pasado).
+  /// En el reloj de ajedrez, al que tiene el turno se le ha acabado el suyo y
+  /// al otro aún le queda: el reloj está parado hasta que pase el turno con su
+  /// botón.
+  bool get waitingForPress {
+    final turn = _turn;
+    return chess &&
+        !running &&
+        turn != null &&
+        outOfTime(turn) &&
+        !outOfTime(turn.other);
+  }
+
+  /// A [seat] le quedan [seatWarningTime] o menos (y aún no se le ha acabado).
   bool warningFor(Seat seat) =>
-      !overtimeFor(seat) && leftFor(seat) <= seatWarningTime;
+      !outOfTime(seat) && leftFor(seat) <= seatWarningTime;
+
+  /// Se puede poner en marcha desde la hoja: empezar o reanudar. Acabado el
+  /// tiempo, no: solo reiniciar.
+  bool get canStart {
+    if (running) return false;
+    if (finished) return false;
+    final turn = _turn;
+    // El reloj de ajedrez lo arranca el botón de un jugador: sin él no se
+    // sabe de quién es el turno. Y a quien se le ha acabado no le corre.
+    if (chess) return turn != null && !outOfTime(turn);
+    return true;
+  }
 
   void start() {
-    // Acabada la ronda también se puede reanudar: sigue contando lo que se
-    // pasan.
-    if (running) return;
-    // El reloj de ajedrez lo arranca el botón de un jugador: sin él no se
-    // sabe de quién es el turno.
-    if (chess && _turn == null) return;
+    if (!canStart) return;
     _startedAt = _clock();
     _save();
     _tick();
@@ -230,7 +249,8 @@ class RoundTimer extends ChangeNotifier {
   /// [seat] pulsa su botón del reloj de ajedrez: ha acabado lo suyo y le toca
   /// al otro. Como en ajedrez, la primera pulsación arranca el reloj del otro
   /// (pulsa quien no empieza). Solo vale el botón del que tiene el turno, y
-  /// en pausa no hace nada. Devuelve si ha cambiado algo.
+  /// en pausa no hace nada; a quien se le ha acabado el tiempo sí le vale,
+  /// para pasar el turno al otro. Devuelve si ha cambiado algo.
   bool press(Seat seat) {
     if (!chess) return false;
     if (_turn == null && !started) {
@@ -241,22 +261,63 @@ class RoundTimer extends ChangeNotifier {
       notifyListeners();
       return true;
     }
-    if (!running || _turn != seat) return false;
+    if (_turn != seat || !(running || waitingForPress)) return false;
     _bank();
     _turn = seat.other;
-    _startedAt = _clock();
-    _save();
-    _onTick();
+    if (outOfTime(seat.other)) {
+      // Al otro tampoco le queda: el reloj se queda parado.
+      _startedAt = null;
+      _ticker?.cancel();
+      _save();
+      notifyListeners();
+    } else {
+      _startedAt = _clock();
+      _save();
+      _tick();
+    }
     return true;
   }
 
   // Pasa lo que va desde que arrancó a lo acumulado y, en ajedrez, a lo del
-  // jugador que tiene el turno.
+  // jugador que tiene el turno. Puede pasar de lo que quedaba (si se paró con
+  // la app cerrada): lo que queda no baja de cero ([remaining], [leftFor]), y
+  // el cronómetro sigue teniendo lo que lleva de verdad.
   void _bank() {
     final since = _sinceStart;
     _accumulated += since;
     final turn = _turn;
     if (turn != null) _spent[turn] = _spent[turn]! + since;
+  }
+
+  // Si se ha acabado el tiempo con el reloj en marcha (la cuenta atrás o, en
+  // ajedrez, el del que tiene el turno), lo para justo en cero y avisa una
+  // vez. Devuelve si lo ha parado.
+  bool _settle({bool notify = true}) {
+    if (!running) return false;
+    final turn = _turn;
+    final bool done;
+    if (mode == TimerMode.countdown) {
+      done = finished;
+    } else if (chess && turn != null) {
+      done = outOfTime(turn);
+    } else {
+      done = false;
+    }
+    if (!done) return false;
+    _bank();
+    _startedAt = null;
+    _ticker?.cancel();
+    var first = false;
+    if (chess && turn != null) {
+      first = !_flagged[turn]!;
+      _flagged[turn] = true;
+    } else {
+      first = !_finishedNotified;
+      _finishedNotified = true;
+    }
+    _save();
+    if (first && notify) onFinished?.call();
+    return true;
   }
 
   void reset() {
@@ -292,19 +353,9 @@ class RoundTimer extends ChangeNotifier {
   }
 
   void _onTick() {
-    // Al llegar a cero avisa una vez y sigue contando lo que se pasan.
-    if (finished && !_finishedNotified) {
-      _finishedNotified = true;
-      _save();
-      onFinished?.call();
-    }
-    // El reloj de ajedrez no se para: avisa una vez a cada uno.
-    final turn = _turn;
-    if (chess && turn != null && overtimeFor(turn) && !_flagged[turn]!) {
-      _flagged[turn] = true;
-      onFinished?.call();
-      _save();
-    }
+    // Al llegar a cero se para en 0:00 y avisa una vez (en ajedrez, una vez
+    // a cada jugador).
+    _settle();
     notifyListeners();
   }
 
@@ -339,10 +390,10 @@ class RoundTimer extends ChangeNotifier {
   }
 }
 
-/// Lo que enseña el reloj, con un menos delante (U+2212, que mide lo mismo
-/// que las cifras) cuando la ronda se ha acabado y cuenta lo que se pasan.
+/// Lo que enseña el reloj: lo que queda (o lo que va, en cronómetro; o lo que
+/// les queda a los dos, en ajedrez).
 String timerLabel(RoundTimer timer) =>
-    '${timer.finished ? '−' : ''}${formatClock(timer.shown)}';
+    formatClock(timer.chess ? timer.totalLeft : timer.shown);
 
 /// «m:ss», o «h:mm:ss» a partir de una hora (el cronómetro puede pasar).
 String formatClock(Duration d) {
@@ -353,13 +404,4 @@ String formatClock(Duration d) {
   return h > 0
       ? '$h:${m.toString().padLeft(2, '0')}:$s'
       : '${seconds ~/ 60}:$s';
-}
-
-/// Como [formatClock], pero con «−» delante si es negativo: lo que se ha
-/// pasado un jugador del reloj de ajedrez. Lo pasado se redondea hacia
-/// arriba, para que nada más pasarse salga «−0:01» y no «−0:00».
-String formatSignedClock(Duration d) {
-  if (!d.isNegative) return formatClock(d);
-  final ms = -d.inMilliseconds;
-  return '−${formatClock(Duration(seconds: (ms + 999) ~/ 1000))}';
 }

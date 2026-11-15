@@ -1,8 +1,9 @@
-// El aviso de «¡Tiempo!» al acabar la ronda y lo que se pasan en negativo.
+// El aviso de «¡Tiempo!» al acabar la ronda, y que el reloj se queda en 0:00.
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mtglifecounter/look.dart';
+import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/time_up.dart';
 
 import 'layout_test.dart'
@@ -32,21 +33,26 @@ void main() {
   });
 
   for (final theme in themes) {
-    testWidgets('${theme.$1} · sale el aviso, se va solo y el reloj sigue '
-        'en negativo', (tester) async {
+    testWidgets('${theme.$1} · sale el aviso, se va solo y el reloj se queda '
+        'en 0:00', (tester) async {
       final app = await pumpApp(tester, phone, theme);
       await runOut(tester, app);
       expect(find.byType(TimeUpOverlay), findsOneWidget);
       expect(find.text('¡TIEMPO!'), findsNWidgets(2));
-      expect(find.text('−0:42'), findsOneWidget);
+      expect(timerLabel(app.timer), '0:00');
+      // El botón de la barra lleva además una plantilla invisible de ceros.
+      expect(find.text('0:00'), findsWidgets);
+      expect(app.timer.running, isFalse);
 
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(TimeUpOverlay.duration);
       await tester.pump();
       expect(find.byType(TimeUpOverlay), findsNothing);
-      app.now = app.now.add(const Duration(seconds: 1));
+      app.now = app.now.add(const Duration(minutes: 5));
       await tester.pump(const Duration(seconds: 1));
-      expect(find.text('−0:43'), findsOneWidget);
+      expect(timerLabel(app.timer), '0:00');
+      // El botón de la barra lleva además una plantilla invisible de ceros.
+      expect(find.text('0:00'), findsWidgets);
       await tearDownApp(tester, app);
     });
   }

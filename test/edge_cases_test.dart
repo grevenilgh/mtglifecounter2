@@ -192,12 +192,12 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(timer.finished, isTrue);
       expect(finished, 1);
-      // La cuenta atrás enseña los 10 minutos que se han pasado y sigue: si
-      // se vuelve al cronómetro, enseña los 60 que lleva.
-      expect(timerLabel(timer), '−10:00');
+      // La cuenta atrás se para en 0:00; si se vuelve al cronómetro, enseña
+      // los 60 minutos que lleva (parado).
+      expect(timerLabel(timer), '0:00');
+      expect(timer.running, isFalse);
       timer.mode = TimerMode.stopwatch;
       expect(timer.shown, const Duration(minutes: 60));
-      expect(timer.running, isTrue);
       expect(timerLabel(timer), '1:00:00');
       timer.dispose();
     });
