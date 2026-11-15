@@ -70,28 +70,35 @@ class CenterBar extends StatelessWidget {
 
   // De lado a lado y gris, como la app de siempre.
   Widget _original() {
+    // Cuando el reloj cambia cada segundo, el LayoutBuilder se vuelve a
+    // colocar. El ancho fijo (todo, que no cambia nada a la vista) hace que
+    // eso no suba a la pantalla, y la RepaintBoundary, que solo se repinte la
+    // barra y no la pantalla entera.
     return Container(
       height: 78,
+      width: double.infinity,
       color: color.withValues(alpha: alpha),
-      child: LayoutBuilder(
-        builder: (context, constraints) => FittedBox(
-          // Si los botones no caben (pantalla estrecha, cantidad por toque y
-          // reloj a la vez) la barra se encoge en vez de desbordarse; si
-          // sobra sitio, se reparten a lo ancho.
-          fit: BoxFit.scaleDown,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minWidth: constraints.maxWidth),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: _items(
-                (a) => IconButton(
-                  icon: Icon(a.icon, color: Colors.white, size: 28),
-                  tooltip: a.tooltip,
-                  visualDensity: VisualDensity.compact,
-                  onPressed: a.onPressed,
+      child: RepaintBoundary(
+        child: LayoutBuilder(
+          builder: (context, constraints) => FittedBox(
+            // Si los botones no caben (pantalla estrecha, cantidad por toque y
+            // reloj a la vez) la barra se encoge en vez de desbordarse; si
+            // sobra sitio, se reparten a lo ancho.
+            fit: BoxFit.scaleDown,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: _items(
+                  (a) => IconButton(
+                    icon: Icon(a.icon, color: Colors.white, size: 28),
+                    tooltip: a.tooltip,
+                    visualDensity: VisualDensity.compact,
+                    onPressed: a.onPressed,
+                  ),
+                  stepper?.call(Colors.white, false, false),
                 ),
-                stepper?.call(Colors.white, false, false),
               ),
             ),
           ),

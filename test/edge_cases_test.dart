@@ -192,11 +192,13 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       expect(timer.finished, isTrue);
       expect(finished, 1);
-      // Al acabar, la cuenta atrás se queda en la duración de la ronda: si se
-      // vuelve al cronómetro, enseña 50:00 y no los 60 minutos que llevaba.
+      // La cuenta atrás enseña los 10 minutos que se han pasado y sigue: si
+      // se vuelve al cronómetro, enseña los 60 que lleva.
+      expect(timerLabel(timer), '−10:00');
       timer.mode = TimerMode.stopwatch;
-      expect(timer.shown, const Duration(minutes: 50));
-      expect(timer.running, isFalse);
+      expect(timer.shown, const Duration(minutes: 60));
+      expect(timer.running, isTrue);
+      expect(timerLabel(timer), '1:00:00');
       timer.dispose();
     });
   });

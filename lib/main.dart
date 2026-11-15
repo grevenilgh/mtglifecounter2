@@ -12,6 +12,7 @@ import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
+import 'package:mtglifecounter/time_up.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/updater.dart';
 import 'package:mtglifecounter/welcome_page.dart';
@@ -145,6 +146,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ValueNotifier<bool> _resetNotifier = ValueNotifier<bool>(false);
   // La pantalla entera, para que los paneles enseñen su trozo de la imagen.
   int _lifeChangeAmount = 1;
+  // Si se está enseñando el aviso de «¡Tiempo!».
+  bool _timeUp = false;
   String? _iconSkin;
 
   @override
@@ -211,8 +214,10 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     widget.settings.applyWakelock();
   }
 
-  // Al acabar la ronda el móvil vibra tres veces, para notarlo en la mesa.
+  // Al acabar la ronda sale el aviso de «¡Tiempo!» y el móvil vibra tres
+  // veces, para notarlo en la mesa.
   Future<void> _onTimeUp() async {
+    if (mounted) setState(() => _timeUp = true);
     if (!widget.settings.timerVibrate) return;
     for (var i = 0; i < 3; i++) {
       await HapticFeedback.vibrate();
@@ -351,12 +356,27 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           backgroundColor: Colors.black,
           body: Listener(
             onPointerUp: (_) => _retryWakelock(),
-            child: CounterLayout(
-              settings: settings,
-              game: game,
-              bar: bar,
-              lifeChangeAmount: amount,
-              onLifeChanged: _onLifeChanged,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CounterLayout(
+                    settings: settings,
+                    game: game,
+                    bar: bar,
+                    lifeChangeAmount: amount,
+                    onLifeChanged: _onLifeChanged,
+                  ),
+                ),
+                if (_timeUp)
+                  Positioned.fill(
+                    child: TimeUpOverlay(
+                      look: look,
+                      flipTop: game.rotated,
+                      animate: settings.animations,
+                      onDone: () => setState(() => _timeUp = false),
+                    ),
+                  ),
+              ],
             ),
           ),
         );
