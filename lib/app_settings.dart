@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/time_up.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
 
@@ -41,6 +42,7 @@ class AppSettings extends ChangeNotifier {
     _roundMinutes = _prefs.getInt(_kRoundMinutes) ?? 50;
     _timerWarning = _prefs.getBool(_kTimerWarning) ?? true;
     _timerVibrate = _prefs.getBool(_kTimerVibrate) ?? true;
+    _timeUpStays = _prefs.getBool(_kTimeUpStays) ?? true;
     // Quien ya tenía el reloj de ajedrez por defecto lo tiene activado.
     _chessEnabled =
         _prefs.getBool(_kChessEnabled) ?? _timerMode == TimerMode.chess;
@@ -59,6 +61,7 @@ class AppSettings extends ChangeNotifier {
     _kHistoryOpacity,
     _kZoneMarks,
     _kAnimations,
+    _kTimeUpStyle,
   ];
 
   void _loadLook() {
@@ -72,6 +75,7 @@ class AppSettings extends ChangeNotifier {
     _historyOpacity = _prefs.getInt(_kHistoryOpacity);
     _zoneMarks = ZoneMarks.fromName(_prefs.getString(_kZoneMarks));
     _animations = _prefs.getBool(_kAnimations) ?? true;
+    _timeUpStyle = TimeUpStyle.fromName(_prefs.getString(_kTimeUpStyle));
   }
 
   /// Vuelve el aspecto a lo de por defecto de cada tema: la imagen de fondo
@@ -114,6 +118,8 @@ class AppSettings extends ChangeNotifier {
   );
   static const int maxRoundMinutes = 120;
   static const _kAnimations = 'animations';
+  static const _kTimeUpStyle = 'timeUpStyle';
+  static const _kTimeUpStays = 'timeUpStays';
   static const _kShowStepper = 'showStepper';
   static const _kShowHistory = 'showHistory';
   static const _kWelcomeDone = 'welcomeDone';
@@ -146,6 +152,8 @@ class AppSettings extends ChangeNotifier {
   late bool _timerVibrate;
   late bool _chessEnabled;
   late bool _animations;
+  TimeUpStyle? _timeUpStyle;
+  late bool _timeUpStays;
   late bool _showStepper;
   late bool _showHistory;
   late bool _welcomeDone;
@@ -245,6 +253,31 @@ class AppSettings extends ChangeNotifier {
   /// de cada tema.
   int get historyOpacity => _historyOpacity ?? look.defaultHistoryOpacity;
   bool get animations => _animations;
+
+  /// El aviso de fin de ronda. Como los colores, solo se elige con la skin
+  /// personalizada; las demás llevan el suyo ([TimeUpStyle.defaultFor]).
+  TimeUpStyle get timeUpStyle {
+    if (_skinId != Skin.customDefault.id) {
+      return TimeUpStyle.defaultFor(_skinId);
+    }
+    return _timeUpStyle ?? TimeUpStyle.defaultFor(_skinId);
+  }
+
+  set timeUpStyle(TimeUpStyle value) {
+    _timeUpStyle = value;
+    _prefs.setString(_kTimeUpStyle, value.name);
+    notifyListeners();
+  }
+
+  /// Si el aviso de fin de ronda se queda en pantalla, quieto, hasta que se
+  /// toca, en vez de irse solo al dejar de vibrar. Activado por defecto.
+  bool get timeUpStays => _timeUpStays;
+
+  set timeUpStays(bool value) {
+    _timeUpStays = value;
+    _prefs.setBool(_kTimeUpStays, value);
+    notifyListeners();
+  }
 
   /// Si la barra enseña la cantidad por toque (− 1 +). Sin ella cada toque cuenta 1.
   bool get showStepper => _showStepper;

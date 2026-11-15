@@ -36,9 +36,11 @@ void main() {
     testWidgets('${theme.$1} · sale el aviso, se va solo y el reloj se queda '
         'en 0:00', (tester) async {
       final app = await pumpApp(tester, phone, theme);
+      // Con «No se va solo» apagado; encendido, ver el grupo de abajo.
+      app.settings.timeUpStays = false;
       await runOut(tester, app);
       expect(find.byType(TimeUpOverlay), findsOneWidget);
-      expect(find.text('¡TIEMPO!'), findsNWidgets(2));
+      expect(find.byType(TimeUpScene), findsNWidgets(2));
       expect(timerLabel(app.timer), '0:00');
       // El botón de la barra lleva además una plantilla invisible de ceros.
       expect(find.text('0:00'), findsWidgets);
@@ -72,13 +74,53 @@ void main() {
     tester,
   ) async {
     final app = await pumpApp(tester, phone, themes.first);
-    app.settings.animations = false;
+    app.settings
+      ..animations = false
+      ..timeUpStays = false;
     await runOut(tester, app);
-    expect(find.text('¡TIEMPO!'), findsNWidgets(2));
+    expect(find.byType(TimeUpScene), findsNWidgets(2));
     expect(tester.binding.hasScheduledFrame, isFalse);
     await tester.pump(TimeUpOverlay.duration);
     await tester.pump();
     expect(find.byType(TimeUpOverlay), findsNothing);
     await tearDownApp(tester, app);
+  });
+
+  group('no se va solo', () {
+    for (final animate in [true, false]) {
+      testWidgets(animate ? 'con animaciones' : 'sin animaciones', (
+        tester,
+      ) async {
+        final app = await pumpApp(tester, phone, themes.first);
+        app.settings
+          ..timeUpStays = true
+          ..animations = animate;
+        await runOut(tester, app);
+        // Mucho después de dejar de vibrar sigue ahí, entero y sin pedir
+        // fotogramas: no gasta batería mientras espera.
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.pump(const Duration(seconds: 30));
+        await tester.pump();
+        expect(find.byType(TimeUpScene), findsNWidgets(2));
+        expect(tester.binding.hasScheduledFrame, isFalse);
+        // Al tocarlo se va (con su salida, si hay animaciones), sin tocar
+        // las vidas.
+        await tester.tapAt(const Offset(206, 800));
+        await tester.pump();
+        await tester.pump(TimeUpOverlay.duration);
+        await tester.pump();
+        expect(find.byType(TimeUpOverlay), findsNothing);
+        expect(app.game.bottom.life, 20);
+        expect(app.game.top.life, 20);
+        await tearDownApp(tester, app);
+      });
+    }
+
+    // En un torneo la vibración se pierde con facilidad.
+    testWidgets('viene activado', (tester) async {
+      final app = await pumpApp(tester, phone, themes.first);
+      expect(app.settings.timeUpStays, isTrue);
+      await tearDownApp(tester, app);
+    });
   });
 }

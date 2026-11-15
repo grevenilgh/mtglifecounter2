@@ -12,6 +12,7 @@ import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/main.dart';
 import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/round_timer.dart';
+import 'package:mtglifecounter/time_up.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -301,7 +302,9 @@ void main() {
       now = now.add(const Duration(minutes: 25, seconds: 42));
       await tester.pump(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 2));
-      expect(vibrations, [300, 300, 300]);
+      expect(vibrations, [400, 400, 400]);
+      // Al otro le queda tiempo: no sale el aviso de fin de ronda.
+      expect(find.byType(TimeUpOverlay), findsNothing);
       expect(
         find.descendant(of: clockOf(1), matching: find.text('0:00')),
         findsOneWidget,
@@ -327,6 +330,15 @@ void main() {
       await tester.pump();
       expect(timer.turn, Seat.top);
       expect(timer.running, isTrue);
+      // Cuando se le acaba también al otro, se acaba la ronda: vibra y sale
+      // el aviso.
+      vibrations.clear();
+      now = now.add(const Duration(minutes: 26));
+      await tester.pump(const Duration(seconds: 1));
+      expect(find.byType(TimeUpOverlay), findsOneWidget);
+      await tester.pump(const Duration(seconds: 2));
+      expect(vibrations, [400, 400, 400]);
+      expect(timer.running, isFalse);
       await close(tester);
     });
 
@@ -492,6 +504,8 @@ void main() {
         await pumpApp(tester);
         await openGameSettings(tester);
         expect(find.text('Reloj de ajedrez'), findsOneWidget);
+        // Está en pruebas.
+        expect(find.text('BETA'), findsOneWidget);
         expect(find.text('Ajedrez'), findsNothing);
 
         await tester.tap(find.text('Reloj de ajedrez'));

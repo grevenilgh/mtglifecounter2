@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
+import 'package:mtglifecounter/time_up.dart';
 
 import 'layout_test.dart'
     show Screen, TestApp, loadFonts, pumpApp, tearDownApp, themes;
@@ -137,7 +138,7 @@ void main() {
       app.now = app.now.add(const Duration(minutes: 51));
       await tester.pump(const Duration(seconds: 1));
       // Ha salido el aviso; al medir ya se ha ido solo.
-      expect(find.text('¡TIEMPO!'), findsNWidgets(2));
+      expect(find.byType(TimeUpScene), findsNWidgets(2));
     });
     scenario('tras tocar una vida', still, (tester, app) async {
       app.game.bottom.change(-3);

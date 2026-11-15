@@ -23,6 +23,8 @@ import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/main.dart';
 import 'package:mtglifecounter/player_counter.dart';
 import 'package:mtglifecounter/round_timer.dart';
+import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/time_up.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -515,6 +517,52 @@ void main() {
     }
   });
 
+  // Los avisos de fin de ronda, en todas las pantallas y temas, con el panel
+  // de arriba girado: se deja correr la animación hasta que se para (no se va
+  // solo) y nada se desborda.
+  group('el aviso de fin de ronda cabe', () {
+    for (final screen in screens) {
+      for (final theme in themes) {
+        for (final style in TimeUpStyle.values) {
+          final name = '${screen.name} · ${theme.$1} · ${style.label}';
+          testWidgets(name, (tester) async {
+            late TestApp app;
+            final errors = await collectErrors(() async {
+              app = await pumpApp(
+                tester,
+                screen,
+                theme,
+                scenario: Scenario('aviso', (app) {
+                  app.settings
+                    ..skinId = Skin.customDefault.id
+                    ..timeUpStyle = style
+                    ..showTimer = true;
+                  app.game.toggleRotation();
+                }),
+              );
+              app.timer.start();
+              await tester.pump();
+              app.now = app.now.add(const Duration(minutes: 51));
+              await tester.pump(const Duration(seconds: 1));
+              expect(find.byType(TimeUpScene), findsNWidgets(2));
+              for (var i = 0; i < 30; i++) {
+                await tester.pump(const Duration(milliseconds: 100));
+              }
+              // No se va solo: sigue ahí, parado.
+              expect(find.byType(TimeUpOverlay), findsOneWidget);
+              expect(tester.binding.hasScheduledFrame, isFalse);
+              await shot(tester, name);
+            });
+            await tearDownApp(tester, app);
+            // ignore: avoid_print
+            print('AVISO|$name|${errors.join('; ')}');
+            if (screen.supported) expect(errors, isEmpty);
+          });
+        }
+      }
+    }
+  });
+
   group('los toques suman y restan', () {
     for (final screen in screens.where((s) => s.supported)) {
       for (final theme in themes) {
@@ -666,6 +714,25 @@ void main() {
               await tester.pumpAndSettle();
             });
           }
+
+          // Con la skin personalizada, Diseño enseña además los colores y los
+          // nueve avisos para elegir.
+          await step('ajustes Diseño personalizada', () async {
+            app.settings.skinId = Skin.customDefault.id;
+            await tester.pumpAndSettle();
+            await tester.tap(find.byTooltip('Ajustes'));
+            await tester.pumpAndSettle();
+            await tester.tap(find.text('Diseño'));
+            await tester.pumpAndSettle();
+            final list = find.byType(Scrollable).hitTestable().last;
+            for (var i = 0; i < 40; i++) {
+              await tester.drag(list, const Offset(0, -300));
+              await tester.pumpAndSettle();
+            }
+            await shot(tester, '$name · ajustes Diseño personalizada final');
+            tester.state<NavigatorState>(find.byType(Navigator)).pop();
+            await tester.pumpAndSettle();
+          });
 
           for (final (label, tab) in [
             ('moneda', 'Moneda'),

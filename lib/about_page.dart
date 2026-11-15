@@ -126,14 +126,9 @@ class _UpdateSection extends StatefulWidget {
   State<_UpdateSection> createState() => _UpdateSectionState();
 }
 
+// No busca al abrirse: enseña lo que se encontró al abrir la app, y el botón
+// vuelve a buscar.
 class _UpdateSectionState extends State<_UpdateSection> {
-  @override
-  void initState() {
-    super.initState();
-    // No repite si ya miró hace poco (al abrir la app, por ejemplo).
-    widget.updater.check();
-  }
-
   @override
   Widget build(BuildContext context) {
     final updater = widget.updater;
@@ -158,9 +153,7 @@ class _UpdateSectionState extends State<_UpdateSection> {
                   ),
                 ),
                 TextButton(
-                  onPressed: updater.checking
-                      ? null
-                      : () => updater.check(force: true),
+                  onPressed: updater.checking ? null : updater.check,
                   style: TextButton.styleFrom(foregroundColor: kAccent),
                   child: const Text('Buscar'),
                 ),

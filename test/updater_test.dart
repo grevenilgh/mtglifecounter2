@@ -81,7 +81,7 @@ void main() {
       expect(updater.available?.build, 51);
 
       tag = 'v2.0.0-50';
-      await updater.check(force: true);
+      await updater.check();
       expect(updater.available, isNull);
       expect(updater.checkFailed, isFalse);
     });
@@ -103,16 +103,17 @@ void main() {
       expect(updater.checking, isFalse);
     });
 
-    test('no vuelve a preguntar enseguida si no se le fuerza', () async {
+    // Solo se llama al abrir la app y con el botón: cada vez pregunta, pero
+    // no dos a la vez.
+    test('pregunta cada vez que se le pide, pero no dos a la vez', () async {
       var calls = 0;
       final updater = updaterFor((_) {
         calls++;
         return http.Response('{}', 404);
       });
-      await updater.check();
-      await updater.check();
+      await Future.wait([updater.check(), updater.check()]);
       expect(calls, 1);
-      await updater.check(force: true);
+      await updater.check();
       expect(calls, 2);
     });
   });
@@ -214,5 +215,41 @@ void main() {
     expect(find.text('Versión 2.0.0 (50)'), findsOneWidget);
 
     await tester.binding.setSurfaceSize(null);
+  });
+
+  // Solo al abrir la app y con el botón: salir a otra app y volver, en mitad
+  // de un torneo, no pregunta nada.
+  testWidgets('al volver a la app no busca actualizaciones', (tester) async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final game = GameState();
+    var calls = 0;
+    final updater = updaterFor((_) {
+      calls++;
+      return http.Response('{}', 404);
+    });
+    await tester.pumpWidget(
+      MyApp(
+        settings: AppSettings(prefs),
+        game: game,
+        storage: GameStorage(prefs, game),
+        timer: RoundTimer(prefs),
+        updater: updater,
+      ),
+    );
+    for (final state in [
+      AppLifecycleState.inactive,
+      AppLifecycleState.hidden,
+      AppLifecycleState.paused,
+      AppLifecycleState.hidden,
+      AppLifecycleState.inactive,
+      AppLifecycleState.resumed,
+    ]) {
+      tester.binding.handleAppLifecycleStateChanged(state);
+    }
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+    await tester.pump();
+    expect(calls, 0);
+    await tester.pumpWidget(const SizedBox());
   });
 }

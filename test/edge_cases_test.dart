@@ -294,6 +294,90 @@ void main() {
       return plus ? pips.first : pips.last;
     }
 
+    // El historial siempre enseña lo último, también tras cambiar de tema
+    // (cada tema lo dibuja con otra letra y otra caja).
+    testWidgets('al cambiar de tema el historial sigue en lo último', (
+      tester,
+    ) async {
+      await pumpApp(tester);
+      for (var i = 0; i < 40; i++) {
+        game.bottom
+          ..change(i.isEven ? -1 : 2)
+          ..commit();
+      }
+      await tester.pumpAndSettle();
+      ScrollPosition history() => tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byType(PlayerCounter).at(1),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      for (final theme in [
+        AppTheme.classic,
+        AppTheme.modern,
+        AppTheme.original,
+      ]) {
+        settings.theme = theme;
+        await tester.pumpAndSettle();
+        expect(history().maxScrollExtent, greaterThan(0), reason: '$theme');
+        expect(
+          history().pixels,
+          history().maxScrollExtent,
+          reason: 'en $theme no está en lo último',
+        );
+      }
+      await finish(tester);
+    });
+
+    // Al salir el botón del reloj de ajedrez el historial se queda más bajo:
+    // tiene que seguir enseñando lo último, en todos los temas.
+    for (final theme in [
+      AppTheme.original,
+      AppTheme.modern,
+      AppTheme.classic,
+    ]) {
+      testWidgets('con los botones de ajedrez el historial sigue en lo '
+          'último ($theme)', (tester) async {
+        await pumpApp(tester);
+        settings.theme = theme;
+        for (var i = 0; i < 40; i++) {
+          for (final player in [game.top, game.bottom]) {
+            player
+              ..change(i.isEven ? -1 : 2)
+              ..commit();
+          }
+        }
+        await tester.pumpAndSettle();
+        settings
+          ..chessEnabled = true
+          ..timerMode = TimerMode.chess;
+        await tester.pumpAndSettle();
+        for (final panel in [0, 1]) {
+          final history = tester
+              .state<ScrollableState>(
+                find
+                    .descendant(
+                      of: find.byType(PlayerCounter).at(panel),
+                      matching: find.byType(Scrollable),
+                    )
+                    .first,
+              )
+              .position;
+          expect(history.maxScrollExtent, greaterThan(0));
+          expect(
+            history.pixels,
+            history.maxScrollExtent,
+            reason: 'el panel $panel no está en lo último',
+          );
+        }
+        await finish(tester);
+      });
+    }
+
     testWidgets('la cantidad por toque vale para un solo golpe', (
       tester,
     ) async {

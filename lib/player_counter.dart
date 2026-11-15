@@ -99,6 +99,12 @@ class _PlayerCounterState extends State<PlayerCounter>
   Timer? _debounceTimer;
   int _historyLength = 0;
 
+  // El historial se queda pegado a lo último mientras no se suba a mirar:
+  // si cambia su alto (sale el botón del reloj de ajedrez, cambia el tema,
+  // se gira la pantalla), vuelve a lo último en vez de quedarse a medias.
+  bool _followLatest = true;
+  double? _historyHeight;
+
   @override
   void initState() {
     super.initState();
@@ -112,8 +118,16 @@ class _PlayerCounterState extends State<PlayerCounter>
   @override
   void didUpdateWidget(PlayerCounter old) {
     super.didUpdateWidget(old);
-    // Al volver a enseñar el historial, también desde lo último.
-    if (widget.style.showHistory && !old.style.showHistory) _showLatest();
+    // Al volver a enseñar el historial, también desde lo último. Y al cambiar
+    // de tema: cada uno lo dibuja con otra letra y otra caja, y se quedaba
+    // arriba del todo.
+    final look = widget.style.look;
+    final oldLook = old.style.look;
+    if ((widget.style.showHistory && !old.style.showHistory) ||
+        look.theme != oldLook.theme ||
+        look.variant != oldLook.variant) {
+      _showLatest();
+    }
   }
 
   void _showLatest() {
@@ -207,7 +221,7 @@ class _PlayerCounterState extends State<PlayerCounter>
       scrollController: _scrollController,
       clock: widget.clock,
     );
-    return GestureDetector(
+    final panel = GestureDetector(
       onTapDown: _onTap,
       behavior: HitTestBehavior.opaque,
       child: switch (look.theme) {
@@ -222,6 +236,27 @@ class _PlayerCounterState extends State<PlayerCounter>
           child: zone,
         ),
       },
+    );
+    return NotificationListener<ScrollEndNotification>(
+      // Al acabar de moverlo (a mano o solo): ¿se ha quedado en lo último?
+      onNotification: (n) {
+        final m = n.metrics;
+        _followLatest = m.pixels >= m.maxScrollExtent - 2;
+        return false;
+      },
+      child: NotificationListener<ScrollMetricsNotification>(
+        onNotification: (n) {
+          final height = n.metrics.viewportDimension;
+          if (_historyHeight != null &&
+              height != _historyHeight &&
+              _followLatest) {
+            _showLatest();
+          }
+          _historyHeight = height;
+          return false;
+        },
+        child: panel,
+      ),
     );
   }
 }

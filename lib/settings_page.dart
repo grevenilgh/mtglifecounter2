@@ -12,6 +12,7 @@ import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
 import 'package:mtglifecounter/themed_dialog.dart';
+import 'package:mtglifecounter/time_up_picker.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/update_badge.dart';
 import 'package:mtglifecounter/updater.dart';
@@ -330,6 +331,31 @@ class SettingsPage extends StatelessWidget {
           ],
         ),
         _Group(
+          title: 'Aviso de fin de ronda',
+          icon: Icons.alarm_outlined,
+          children: [
+            _Help(
+              settings.skinId == Skin.customDefault.id
+                  ? 'Sale al acabarse el tiempo de la ronda, mientras vibra. '
+                        'Toca uno para elegirlo y verlo.'
+                  : 'Sale al acabarse el tiempo de la ronda, mientras vibra. '
+                        'Cada skin lleva el suyo: tócalo para verlo. Para '
+                        'elegir otro, usa la skin personalizada.',
+            ),
+            const SizedBox(height: 10),
+            TimeUpPicker(settings: settings),
+            const SizedBox(height: 6),
+            SettingsSwitch(
+              title: 'No se va solo',
+              subtitle: settings.timeUpStays
+                  ? 'Se queda en pantalla hasta que alguien lo toque.'
+                  : 'Se va solo al dejar de vibrar.',
+              value: settings.timeUpStays,
+              onChanged: (value) => settings.timeUpStays = value,
+            ),
+          ],
+        ),
+        _Group(
           title: 'Imagen de fondo',
           icon: Icons.image_outlined,
           children: [
@@ -536,10 +562,11 @@ class SettingsPage extends StatelessWidget {
             // aquí ni en el reloj de la barra.
             SettingsSwitch(
               title: 'Reloj de ajedrez',
+              badge: 'BETA',
               subtitle:
                   'Reparte el tiempo de la ronda entre los dos, con un botón '
                   'en cada panel. Activado, se puede elegir aquí y en el '
-                  'reloj de la barra.',
+                  'reloj de la barra. Está en pruebas.',
               value: settings.chessEnabled,
               onChanged: (v) => _setChess(context, v),
             ),
@@ -1125,11 +1152,15 @@ class SettingsSwitch extends StatelessWidget {
     super.key,
     required this.title,
     this.subtitle,
+    this.badge,
     required this.value,
     required this.onChanged,
   });
 
   final String title;
+
+  /// Una etiqueta junto al título, como «BETA» en lo que está en pruebas.
+  final String? badge;
 
   /// La explicación de debajo; sin ella la fila es más baja.
   final String? subtitle;
@@ -1142,7 +1173,36 @@ class SettingsSwitch extends StatelessWidget {
   Widget build(BuildContext context) {
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(title, style: const TextStyle(color: Colors.white)),
+      title: badge == null
+          ? Text(title, style: const TextStyle(color: Colors.white))
+          // Con letra grande, la etiqueta baja a la línea siguiente.
+          : Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white)),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: kAccent),
+                  ),
+                  child: Text(
+                    badge!,
+                    style: const TextStyle(
+                      color: kAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
       subtitle: subtitle == null
           ? null
           : Text(subtitle!, style: const TextStyle(color: kMutedText)),

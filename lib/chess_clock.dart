@@ -9,9 +9,9 @@ import 'package:mtglifecounter/vibration.dart';
 /// antiguo es el trozo de abajo de la caja de texto: el reloj de arena y,
 /// debajo, el tiempo.
 Size chessClockSize(Look look) => switch (look.theme) {
-  AppTheme.original => const Size(64, 56),
-  AppTheme.modern => const Size(62, 56),
-  AppTheme.classic => const Size(60, 72),
+  AppTheme.original => const Size(64, 64),
+  AppTheme.modern => const Size(64, 64),
+  AppTheme.classic => const Size(60, 84),
 };
 
 /// En qué momento está el reloj de un jugador.
@@ -31,12 +31,12 @@ enum _Phase {
 
 /// El botón del reloj de ajedrez de un jugador, abajo a la derecha de su
 /// panel. Enseña lo que le queda; al pulsarlo se para su reloj y corre el
-/// del otro. Al que le toca le sobresale y brilla; al que espera se le ve
-/// hundido. Con poco tiempo se pone ámbar y, si se le acaba, se queda en 0:00
+/// del otro. Al que le toca le sobresale, con «PASAR»; al que espera se le
+/// ve hundido. Con poco tiempo se pone ámbar y, si se le acaba, se queda en 0:00
 /// en rojo: el reloj se para hasta que pulse para pasar el turno al otro.
 ///
-/// En el borde antiguo es un reloj de arena de madera y latón: de pie corre
-/// la arena y tumbado espera.
+/// En el borde antiguo es un reloj de arena de madera y latón sobre una placa
+/// de latón: de pie corre la arena y tumbado espera.
 class ChessClockButton extends StatefulWidget {
   const ChessClockButton({
     super.key,
@@ -74,11 +74,11 @@ class ChessClockButton extends StatefulWidget {
 }
 
 class _ChessClockButtonState extends State<ChessClockButton> {
-  // El brillo que late, a saltos de uno por segundo, con el segundero: así no
-  // pinta más fotogramas que el propio reloj. Con un AnimationController que
-  // se repetía, el reloj de ajedrez en marcha tenía el móvil a 60 fotogramas
-  // por segundo y con tres cuartos del procesador toda la ronda.
-  static const List<double> _breath = [0.15, 0.55, 1, 0.55];
+  // Nada late ni brilla a saltos: con un AnimationController que se repetía,
+  // el reloj de ajedrez en marcha tenía el móvil a 60 fotogramas por segundo
+  // y con tres cuartos del procesador toda la ronda, y un brillo que cambiaba
+  // una vez por segundo parpadeaba. Solo cambian el tiempo, el anillo y la
+  // arena, con el segundero.
 
   void _press() {
     if (widget.timer.press(widget.seat) && widget.vibrate) {
@@ -125,10 +125,8 @@ class _ChessClockButtonState extends State<ChessClockButton> {
         // Solo se anima mientras corre su reloj (sin tiempo no corre).
         final animate =
             widget.animations && phase == _Phase.run && timer.running;
-        final second = left.inSeconds;
-        final glow = animate ? _breath[second % _breath.length] : 0.5;
         // La arena baja una raya por segundo (el dibujo se repite cada 3).
-        final flow = animate ? (second % 3) / 8 : null;
+        final flow = animate ? (left.inSeconds % 3) / 8 : null;
         final label = formatClock(left);
         final state = switch (phase) {
           _Phase.idle => 'pulsa para que empiece el otro',
@@ -158,11 +156,10 @@ class _ChessClockButtonState extends State<ChessClockButton> {
                         warn: warn,
                         fraction: over ? 0 : fraction,
                         label: label,
-                        glow: glow,
                         flow: flow,
                         darkInk: widget.darkInk,
                       )
-                    : _Chip(
+                    : _RoundButton(
                         look: look,
                         color: widget.color,
                         phase: phase,
@@ -170,7 +167,6 @@ class _ChessClockButtonState extends State<ChessClockButton> {
                         warn: warn,
                         fraction: fraction,
                         label: label,
-                        glow: glow,
                       ),
               ),
             ),
@@ -181,10 +177,12 @@ class _ChessClockButtonState extends State<ChessClockButton> {
   }
 }
 
-/// El botón de los temas Original, Cristal y Tarjetas: una pastilla con un
-/// icono, el tiempo y una barrita de lo que le queda.
-class _Chip extends StatelessWidget {
-  const _Chip({
+/// El botón de los temas Original, Cristal y Tarjetas: un pulsador redondo
+/// con el tiempo dentro y un anillo alrededor que se vacía segundo a
+/// segundo. Al que le toca le sobresale, con «PASAR»; el que espera está
+/// hundido y apagado.
+class _RoundButton extends StatelessWidget {
+  const _RoundButton({
     required this.look,
     required this.color,
     required this.phase,
@@ -192,7 +190,6 @@ class _Chip extends StatelessWidget {
     required this.warn,
     required this.fraction,
     required this.label,
-    required this.glow,
   });
 
   final Look look;
@@ -202,7 +199,6 @@ class _Chip extends StatelessWidget {
   final bool warn;
   final double fraction;
   final String label;
-  final double glow;
 
   static const _amber = Color(0xFFF59E0B);
   static const _amberInk = Color(0xFF1F1403);
@@ -211,103 +207,105 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final running = phase == _Phase.run;
-    final waiting = phase == _Phase.wait;
-    final radius = switch (look.theme) {
-      AppTheme.original => 12.0,
-      _ => look.isCards ? 18.0 : 16.0,
-    };
-    // Lo que sobresale: la sombra de debajo y el brillo que late.
-    final List<BoxShadow> raised;
-    Color? fill;
-    Gradient? gradient;
-    Border? border;
+    final idle = phase == _Phase.idle;
+    // Sobresale el que tiene que pulsar: el del turno y, sin empezar, los
+    // dos (cualquiera puede arrancar el reloj del otro).
+    final raised = running || idle;
+    Gradient face;
     Color ink;
+    Color ring;
+    Border? edge;
     if (over && running) {
-      fill = _red;
+      face = const RadialGradient(colors: [Color(0xFFF05252), _red]);
       ink = Colors.white;
-      raised = _lift(_red);
+      ring = Colors.transparent;
     } else if (over) {
-      fill = const Color(0xB3B91C1C);
-      border = Border.all(color: const Color(0xFFF87171), width: 1.5);
+      face = const RadialGradient(
+        colors: [Color(0xB3B91C1C), Color(0xB3B91C1C)],
+      );
       ink = const Color(0xFFFFE4E4);
-      raised = const [];
+      ring = Colors.transparent;
+      edge = Border.all(color: const Color(0xFFF87171), width: 1.5);
     } else if (warn) {
-      fill = _amber;
+      face = const RadialGradient(
+        center: Alignment(-0.3, -0.4),
+        colors: [Color(0xFFFFD27A), _amber],
+      );
       ink = _amberInk;
-      raised = _lift(_amber);
+      ring = _amber;
     } else if (running) {
-      switch (look.theme) {
-        case AppTheme.original:
-          fill = const Color(0xFFF5F2EA);
-          ink = const Color(0xFF141414);
-          raised = _lift(Colors.white);
-        case _ when look.isCards:
-          gradient = LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [shade(color, 1.2), shade(color, 0.7)],
-          );
-          border = Border.all(color: shade(color, 1.6), width: 2);
-          ink = Colors.white;
-          raised = _lift(shade(color, 1.3));
-        case _:
-          fill = Colors.white.withValues(alpha: 0.18);
-          border = Border.all(color: Colors.white.withValues(alpha: 0.55));
-          ink = Colors.white;
-          raised = [
-            BoxShadow(color: shade(color, 1.4), spreadRadius: 2),
-            BoxShadow(
-              color: shade(color, 1.3).withValues(alpha: 0.5 + 0.4 * glow),
-              blurRadius: 14 + 12 * glow,
-            ),
-          ];
+      if (look.theme == AppTheme.original) {
+        face = const RadialGradient(
+          center: Alignment(-0.3, -0.4),
+          colors: [Colors.white, Color(0xFFE6E0D2)],
+        );
+        ink = const Color(0xFF141414);
+      } else {
+        // Cristal y Tarjetas: del color del jugador.
+        face = RadialGradient(
+          center: const Alignment(-0.3, -0.4),
+          colors: [shade(color, 1.9), shade(color, 0.85)],
+        );
+        ink = Colors.white;
       }
+      ring = Colors.white;
     } else {
-      // Sin empezar, esperando o en pausa: apagado y sin sobresalir.
-      final idle = phase == _Phase.idle;
-      final paused = phase == _Phase.pause;
-      fill = Colors.black.withValues(
-        alpha: look.isGlass ? 0.36 : (paused ? 0.25 : 0.3),
+      // Sin empezar, esperando o en pausa: apagado.
+      face = RadialGradient(
+        colors: [
+          Colors.black.withValues(alpha: 0.28),
+          Colors.black.withValues(alpha: look.isGlass ? 0.5 : 0.42),
+        ],
       );
-      final edge = look.isCards ? shade(color, 1.4) : Colors.white;
-      border = Border.all(
-        color: edge.withValues(
-          alpha: idle ? 0.6 : (paused ? 0.55 : (look.isCards ? 0.45 : 0.28)),
-        ),
-        width: look.isCards && idle ? 2 : 1.5,
-      );
-      ink = Colors.white.withValues(alpha: idle ? 1 : (paused ? 0.75 : 0.6));
-      raised = const [];
+      ink = Colors.white.withValues(alpha: idle ? 1 : 0.62);
+      ring = Colors.white.withValues(alpha: idle ? 0.6 : 0.4);
+      if (idle) edge = Border.all(color: Colors.white.withValues(alpha: 0.6));
     }
-    final icon = switch (phase) {
+    final IconData? icon = switch (phase) {
+      _ when over => Icons.flag_rounded,
       _Phase.idle => Icons.play_arrow_rounded,
       _Phase.pause => Icons.pause_rounded,
-      _ when over => Icons.flag_rounded,
-      _ => Icons.hourglass_bottom_rounded,
+      _ => null,
     };
-    final showBar = (running || waiting) && !over;
+    final showPass = running && !over;
     return Transform.translate(
       // El que espera está hundido, como el botón pulsado de un reloj de
       // ajedrez de verdad.
-      offset: Offset(0, running ? 0 : 2),
+      offset: Offset(0, raised ? 0 : 4),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: fill,
-          gradient: gradient,
-          border: border,
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: raised,
+          shape: BoxShape.circle,
+          boxShadow: raised
+              ? const [
+                  BoxShadow(color: Color(0x80000000), offset: Offset(0, 5)),
+                  BoxShadow(
+                    color: Color(0x70000000),
+                    blurRadius: 14,
+                    offset: Offset(0, 8),
+                  ),
+                ]
+              : null,
         ),
-        child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(4, 4, 4, 9),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(icon, size: 15, color: ink),
-                  Flexible(
-                    child: FittedBox(
+        child: CustomPaint(
+          painter: _RingPainter(
+            fraction: over ? 0 : fraction,
+            color: ring,
+            track: Colors.white.withValues(alpha: 0.14),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: face,
+                border: edge,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 5),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         label,
@@ -315,56 +313,79 @@ class _Chip extends StatelessWidget {
                         textScaler: TextScaler.noScaling,
                         style: TextStyle(
                           color: ink,
-                          fontSize: 19,
+                          fontSize: 16,
                           height: 1.05,
                           fontWeight: FontWeight.w900,
                           fontFeatures: kNumberFeatures,
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            if (showBar)
-              Positioned(
-                left: 9,
-                right: 9,
-                bottom: 5,
-                height: 3,
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(2),
-                  child: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: ColoredBox(color: ink.withValues(alpha: 0.18)),
-                      ),
-                      FractionallySizedBox(
-                        widthFactor: fraction,
-                        heightFactor: 1,
-                        child: ColoredBox(color: ink.withValues(alpha: 0.75)),
-                      ),
-                    ],
-                  ),
+                    if (showPass)
+                      Text(
+                        'PASAR',
+                        maxLines: 1,
+                        textScaler: TextScaler.noScaling,
+                        style: TextStyle(
+                          color: ink,
+                          fontSize: 7.5,
+                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 1,
+                        ),
+                      )
+                    else if (icon != null)
+                      Icon(icon, size: 12, color: ink),
+                  ],
                 ),
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
   }
-
-  List<BoxShadow> _lift(Color light) => [
-    const BoxShadow(color: Color(0x8C000000), offset: Offset(0, 4)),
-    BoxShadow(
-      color: light.withValues(alpha: 0.3 + 0.4 * glow),
-      blurRadius: 10 + 10 * glow,
-    ),
-  ];
 }
 
-/// El botón del borde antiguo: un reloj de arena de madera y latón con el
-/// tiempo debajo. De pie la arena cae; tumbado (esperando o en pausa) se
+/// El anillo de lo que le queda: la pista y, encima, el arco desde arriba en
+/// el sentido de las agujas del reloj.
+class _RingPainter extends CustomPainter {
+  const _RingPainter({
+    required this.fraction,
+    required this.color,
+    required this.track,
+  });
+
+  final double fraction;
+  final Color color;
+  final Color track;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = (Offset.zero & size).deflate(2.5);
+    final pen = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5;
+    canvas.drawOval(rect, pen..color = track);
+    if (fraction > 0 && color.a > 0) {
+      canvas.drawArc(
+        rect,
+        -pi / 2,
+        2 * pi * fraction,
+        false,
+        pen
+          ..color = color
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.fraction != fraction || old.color != color || old.track != track;
+}
+
+/// El botón del borde antiguo: un reloj de arena de madera y latón sobre una
+/// placa de latón que sobresale como un pulsador, con el tiempo debajo. De pie la arena cae; tumbado (esperando o en pausa) se
 /// para.
 class _Hourglass extends StatelessWidget {
   const _Hourglass({
@@ -373,7 +394,6 @@ class _Hourglass extends StatelessWidget {
     required this.warn,
     required this.fraction,
     required this.label,
-    required this.glow,
     required this.flow,
     required this.darkInk,
   });
@@ -385,11 +405,14 @@ class _Hourglass extends StatelessWidget {
   /// La arena que queda arriba, de 0 a 1.
   final double fraction;
   final String label;
-  final double glow;
 
   /// Por dónde va la arena que cae, de 0 a 1; null si no cae.
   final double? flow;
   final bool darkInk;
+
+  /// El ancho del botón y el lado de la placa de latón.
+  static const double _width = 60;
+  static const double _plate = 48;
 
   @override
   Widget build(BuildContext context) {
@@ -416,7 +439,7 @@ class _Hourglass extends StatelessWidget {
       painter: _HourglassPainter(
         fraction: fraction,
         flow: flow,
-        glow: glowColor?.withValues(alpha: 0.55 + 0.45 * glow),
+        glow: glowColor?.withValues(alpha: 0.8),
       ),
     );
     if (lying) {
@@ -431,49 +454,111 @@ class _Hourglass extends StatelessWidget {
         child: glass,
       );
     }
+    // La placa de latón sobresale para el que tiene que pulsar (el del turno
+    // y, sin empezar, los dos) y se hunde para el que espera.
+    final raised = running || phase == _Phase.idle;
+    TextStyle vollkorn(double size, {double spacing = 0}) => withFont(
+      'Vollkorn',
+      TextStyle(
+        color: ink,
+        fontSize: size,
+        height: 1.15,
+        fontWeight: FontWeight.w800,
+        letterSpacing: spacing,
+        fontFeatures: kNumberFeatures,
+        shadows: darkInk
+            ? const [Shadow(color: Color(0xE6000000), blurRadius: 3)]
+            : null,
+      ),
+    );
     return Stack(
+      clipBehavior: Clip.none,
       children: [
         Positioned(
-          top: 3,
-          left: 0,
-          right: 0,
-          height: 44,
-          child: Center(
-            child: AnimatedRotation(
-              turns: lying ? 0.25 : 0,
-              duration: const Duration(milliseconds: 320),
-              curve: Curves.easeOutBack,
-              child: glass,
+          top: raised ? 0 : 4,
+          left: (_width - _plate) / 2,
+          width: _plate,
+          height: _plate,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: raised
+                    ? const [
+                        Color(0xFFF6DC8F),
+                        Color(0xFFB8862E),
+                        Color(0xFF7A5418),
+                      ]
+                    : const [
+                        Color(0xFFBFAE84),
+                        Color(0xFF8C7346),
+                        Color(0xFF5C4A2A),
+                      ],
+                stops: const [0, 0.55, 1],
+              ),
+              border: Border.all(
+                color: raised
+                    ? const Color(0xFFFFF0C2)
+                    : const Color(0xFF6B5A3A),
+                width: 1,
+              ),
+              boxShadow: raised
+                  ? const [
+                      BoxShadow(color: Color(0xFF3A2508), offset: Offset(0, 4)),
+                      BoxShadow(
+                        color: Color(0x66000000),
+                        blurRadius: 10,
+                        offset: Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Center(
+              child: Transform.scale(
+                scale: 0.82,
+                child: AnimatedRotation(
+                  turns: lying ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutBack,
+                  child: glass,
+                ),
+              ),
             ),
           ),
         ),
         Positioned(
           left: 0,
           right: 0,
-          bottom: 2,
-          height: 20,
+          top: _plate + 5,
+          height: 19,
           child: FittedBox(
             fit: BoxFit.scaleDown,
             child: Text(
               label,
               maxLines: 1,
               textScaler: TextScaler.noScaling,
-              style: withFont(
-                'Vollkorn',
-                TextStyle(
-                  color: ink,
-                  fontSize: 16,
-                  height: 1.15,
-                  fontWeight: FontWeight.w800,
-                  fontFeatures: kNumberFeatures,
-                  shadows: darkInk
-                      ? const [Shadow(color: Color(0xE6000000), blurRadius: 3)]
-                      : null,
-                ),
-              ),
+              style: vollkorn(16),
             ),
           ),
         ),
+        if (running && !over)
+          Positioned(
+            left: 0,
+            right: 0,
+            top: _plate + 23,
+            height: 11,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                'PASAR',
+                maxLines: 1,
+                textScaler: TextScaler.noScaling,
+                style: vollkorn(9, spacing: 1),
+              ),
+            ),
+          ),
       ],
     );
   }

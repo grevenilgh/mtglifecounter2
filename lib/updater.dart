@@ -83,9 +83,6 @@ class Updater extends ChangeNotifier {
   /// La página de la última versión, para bajarla a mano si falla la app.
   static const String releasesPage = 'https://github.com/$repo/releases/latest';
 
-  /// Cada cuánto se vuelve a preguntar al volver a la app.
-  static const Duration _recheck = Duration(minutes: 30);
-
   static const MethodChannel _channel = MethodChannel('mtglifecounter/update');
 
   /// Solo la app de Android: la web se carga nueva cada vez.
@@ -108,23 +105,16 @@ class Updater extends ChangeNotifier {
   /// Si la última vez no se pudo preguntar (sin internet, por ejemplo).
   bool checkFailed = false;
 
-  DateTime? _lastCheck;
-
   UpdateStep step = UpdateStep.idle;
 
   /// Lo descargado, de 0 a 1 (null si no se sabe el total).
   double? progress;
 
-  /// Pregunta a GitHub por la última versión. Sin [force], no repite si ya
-  /// preguntó hace poco.
-  Future<void> check({bool force = false}) async {
-    final last = _lastCheck;
-    if (checking ||
-        (!force &&
-            last != null &&
-            DateTime.now().difference(last) < _recheck)) {
-      return;
-    }
+  /// Pregunta a GitHub por la última versión. Se llama al abrir la app y
+  /// con el botón «Buscar actualizaciones»; nada más: al volver a la app en
+  /// mitad de un torneo no hace falta.
+  Future<void> check() async {
+    if (checking) return;
     checking = true;
     notifyListeners();
     try {
@@ -142,7 +132,6 @@ class Updater extends ChangeNotifier {
         throw HttpException('GitHub respondió ${response.statusCode}');
       }
       checkFailed = false;
-      _lastCheck = DateTime.now();
     } catch (_) {
       checkFailed = true;
     } finally {

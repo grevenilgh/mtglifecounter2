@@ -179,13 +179,11 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   }
 
   // Al pasar a segundo plano se guarda al momento: puede que la app no vuelva.
+  // Al volver no se buscan actualizaciones: eso solo al abrir la app y con el
+  // botón de «Acerca de».
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      widget.updater?.check();
-    } else {
-      widget.storage.flush();
-    }
+    if (state != AppLifecycleState.resumed) widget.storage.flush();
   }
 
   void _syncSettings() {
@@ -222,16 +220,26 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     widget.settings.applyWakelock();
   }
 
-  // Al acabar la ronda sale el aviso de «¡Tiempo!» y el móvil vibra tres
-  // veces, para notarlo en la mesa. En el reloj de ajedrez, cuando a un
-  // jugador se le acaba el suyo, solo vibra: la ronda sigue y el «¡Tiempo!»
-  // de los dos no toca.
+  // Al acabar la ronda sale el aviso de fin de ronda y el móvil vibra tres
+  // veces, para notarlo en la mesa: el aviso va al ritmo de las vibraciones
+  // (kTimeUpBuzzes) y se va al acabar la última. En el reloj de ajedrez,
+  // cuando a un jugador se le acaba el suyo, solo vibra: la ronda sigue y el
+  // aviso de los dos no toca.
   Future<void> _onTimeUp() async {
-    if (mounted && !widget.timer.chess) setState(() => _timeUp = true);
+    // En el reloj de ajedrez, al que se le acaba solo le vibra (el otro sigue
+    // jugando con lo suyo); el aviso sale cuando se les acaba a los dos, que
+    // es cuando se acaba la ronda.
+    final timer = widget.timer;
+    final roundOver =
+        !timer.chess ||
+        (timer.outOfTime(Seat.top) && timer.outOfTime(Seat.bottom));
+    if (mounted && roundOver) setState(() => _timeUp = true);
     if (!widget.settings.timerVibrate) return;
-    for (var i = 0; i < 3; i++) {
-      await vibrate(const Duration(milliseconds: 300));
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+    var at = Duration.zero;
+    for (final buzz in kTimeUpBuzzes) {
+      await Future<void>.delayed(buzz - at);
+      at = buzz;
+      await vibrate(kTimeUpBuzzLength);
     }
   }
 
@@ -361,9 +369,13 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                 if (_timeUp)
                   Positioned.fill(
                     child: TimeUpOverlay(
+                      style: settings.timeUpStyle,
+                      lives: (game.top.life, game.bottom.life),
+                      roundMinutes: widget.timer.roundLength.inMinutes,
                       look: look,
                       flipTop: game.rotated,
                       animate: settings.animations,
+                      stays: settings.timeUpStays,
                       onDone: () => setState(() => _timeUp = false),
                     ),
                   ),
