@@ -103,7 +103,7 @@ class _ChessClockButtonState extends State<ChessClockButton> {
         final seat = widget.seat;
         final phase = _phase;
         final left = timer.leftFor(seat);
-        final over = phase != _Phase.idle && timer.overtime(seat);
+        final over = phase != _Phase.idle && timer.overtimeFor(seat);
         final warn =
             widget.warningEnabled &&
             phase == _Phase.run &&

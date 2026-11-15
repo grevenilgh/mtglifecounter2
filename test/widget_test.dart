@@ -206,11 +206,19 @@ void main() {
       now = now.add(const Duration(minutes: 26));
       expect(timer.warning, isTrue);
       now = now.add(const Duration(minutes: 5));
-      timer.pause();
-      timer.start(); // ya acabada, no vuelve a arrancar
+      // Acabada sigue en marcha y cuenta lo que se pasan, en negativo.
       expect(timer.finished, isTrue);
-      expect(timer.running, isFalse);
-      expect(timer.shown, Duration.zero);
+      expect(timer.running, isTrue);
+      expect(timer.shown, const Duration(minutes: 1));
+      expect(timerLabel(timer), '−1:00');
+      // Y se puede pausar y seguir.
+      timer.pause();
+      now = now.add(const Duration(minutes: 10));
+      expect(timerLabel(timer), '−1:00');
+      timer.start();
+      now = now.add(const Duration(seconds: 30));
+      expect(timerLabel(timer), '−1:30');
+      expect(timer.warning, isFalse);
     });
 
     testWidgets('al llegar a cero avisa una sola vez', (tester) async {
@@ -222,9 +230,11 @@ void main() {
       timer.start();
       now = now.add(const Duration(minutes: 6));
       await tester.pump(const Duration(seconds: 1));
+      now = now.add(const Duration(seconds: 3));
       await tester.pump(const Duration(seconds: 3));
       expect(finishedCalls, 1);
-      expect(timer.elapsed, const Duration(minutes: 5));
+      expect(timer.running, isTrue);
+      expect(timer.overtime, const Duration(minutes: 1, seconds: 3));
 
       timer.reset();
       expect(timer.started, isFalse);
@@ -344,7 +354,7 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
       await tester.pump(const Duration(seconds: 1));
       expect(timer.running, isTrue);
-      expect(timer.overtime(Seat.bottom), isTrue);
+      expect(timer.overtimeFor(Seat.bottom), isTrue);
       expect(formatSignedClock(timer.leftFor(Seat.bottom)), '−0:42');
       expect(flags, 1);
 

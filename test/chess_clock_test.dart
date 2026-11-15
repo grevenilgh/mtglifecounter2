@@ -129,7 +129,7 @@ void main() {
         ..onFinished = () => again++;
       await tester.pump(const Duration(seconds: 2));
       expect(again, 0);
-      expect(reopened.overtime(Seat.bottom), isTrue);
+      expect(reopened.overtimeFor(Seat.bottom), isTrue);
 
       // Tras reiniciar, vuelve a avisar.
       reopened
@@ -344,7 +344,7 @@ void main() {
         ..commit();
       await tester.tap(find.byTooltip('Reiniciar partida'));
       await settle(tester);
-      await tester.tap(find.text('Aceptar'));
+      await tester.tap(find.text('Reiniciar'));
       await tester.pump(const Duration(milliseconds: 500));
       expect(game.bottom.life, 20);
       expect(timer.turn, Seat.bottom);
@@ -539,7 +539,7 @@ void main() {
 
         await tester.tap(find.text('Reloj de ajedrez'));
         await settle(tester);
-        expect(find.text('Quitar el reloj de ajedrez'), findsOneWidget);
+        expect(find.text('¿Quitar el reloj de ajedrez?'), findsOneWidget);
         await tester.tap(find.text('Cancelar'));
         await settle(tester);
         expect(settings.chessEnabled, isTrue);
@@ -590,8 +590,11 @@ void main() {
         await pumpApp(tester, before: enableChess);
         await openSheet(tester);
         expect(find.text('Pulsa el botón de quien no empieza'), findsOneWidget);
-        final start = find.widgetWithText(FilledButton, 'Iniciar');
-        expect(tester.widget<FilledButton>(start).onPressed, isNull);
+        // «Iniciar» está apagado: pulsarlo no arranca nada.
+        final start = find.text('Iniciar');
+        await tester.tap(start, warnIfMissed: false);
+        await tester.pump();
+        expect(timer.started, isFalse);
         Navigator.of(tester.element(start)).pop();
         await settle(tester);
 
@@ -599,10 +602,10 @@ void main() {
         await tester.pump();
         await openSheet(tester);
         expect(find.textContaining('le toca al de abajo'), findsOneWidget);
-        await tester.tap(find.widgetWithText(FilledButton, 'Pausar'));
+        await tester.tap(find.text('Pausar'));
         await tester.pump();
         expect(timer.running, isFalse);
-        await tester.tap(find.widgetWithText(FilledButton, 'Reanudar'));
+        await tester.tap(find.text('Reanudar'));
         await tester.pump();
         expect(timer.running, isTrue);
         expect(timer.turn, Seat.bottom);

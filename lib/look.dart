@@ -94,6 +94,49 @@ enum TintMode {
   edge,
 }
 
+/// Recorta la franja de arriba o de abajo de un marco de carta en inglete,
+/// como las esquinas de las cartas de verdad: en diagonal desde la esquina
+/// de fuera hasta la de dentro, con [left] y [right] de grosor de los lados.
+/// Las tiras de los lados van enteras debajo; así el filo del marco da la
+/// vuelta a la esquina seguido, sin que un lado se corte contra el otro, y
+/// no queda hueco en la unión.
+class MitreClipper extends CustomClipper<Path> {
+  const MitreClipper({
+    required this.left,
+    required this.right,
+    required this.top,
+  });
+
+  final double left;
+  final double right;
+
+  /// La franja de arriba (si no, la de abajo).
+  final bool top;
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    return top
+        ? (Path()
+            ..moveTo(0, 0)
+            ..lineTo(w, 0)
+            ..lineTo(w - right, h)
+            ..lineTo(left, h)
+            ..close())
+        : (Path()
+            ..moveTo(left, 0)
+            ..lineTo(w - right, 0)
+            ..lineTo(w, h)
+            ..lineTo(0, h)
+            ..close());
+  }
+
+  @override
+  bool shouldReclip(MitreClipper old) =>
+      old.left != left || old.right != right || old.top != top;
+}
+
 /// Marco de carta de Alpha del borde antiguo. No es un color liso sino una
 /// textura (`assets/images/marcos/`), pintada a 1 dp por unidad.
 enum CardFrame {

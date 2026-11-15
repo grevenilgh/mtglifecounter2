@@ -11,6 +11,7 @@ import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/themed_dialog.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/update_badge.dart';
 import 'package:mtglifecounter/updater.dart';
@@ -452,36 +453,18 @@ class SettingsPage extends StatelessWidget {
   }
 
   Future<void> _confirmResetLook(BuildContext context) async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: kCardColor,
-        title: const Text(
-          'Volver al aspecto por defecto',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
+    final accepted = await showThemedConfirm(
+      context,
+      settings: settings,
+      icon: Icons.restart_alt,
+      title: '¿Volver al aspecto por defecto?',
+      message:
           'La imagen de fondo, el foco, las mitades, las transparencias y las '
           'animaciones vuelven a lo que trae cada tema. El tema, la skin y '
           'la partida se quedan como están.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Restablecer', style: TextStyle(color: kAccent)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Restablecer',
     );
-    if (accepted == true) await settings.resetLook();
+    if (accepted) await settings.resetLook();
   }
 
   /// Activa o quita el reloj de ajedrez. Al quitarlo, si el reloj de la
@@ -489,34 +472,18 @@ class SettingsPage extends StatelessWidget {
   /// había empezado, pregunta antes.
   Future<void> _setChess(BuildContext context, bool value) async {
     if (!value && timer.chess && timer.started) {
-      final accepted = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: kCardColor,
-          title: const Text(
-            'Quitar el reloj de ajedrez',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
+      final accepted = await showThemedConfirm(
+        context,
+        settings: settings,
+        icon: Icons.restart_alt,
+        title: '¿Quitar el reloj de ajedrez?',
+        message:
             'El reloj de esta partida es de ajedrez y ya ha empezado. Al '
             'quitarlo se reinicia.',
-            style: TextStyle(color: kMutedText),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              style: TextButton.styleFrom(foregroundColor: Colors.white),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(true),
-              style: TextButton.styleFrom(foregroundColor: kAccent),
-              child: const Text('Quitar y reiniciar'),
-            ),
-          ],
-        ),
+        confirmLabel: 'Quitar y reiniciar',
+        destructive: true,
       );
-      if (accepted != true) return;
+      if (!accepted) return;
     }
     settings.chessEnabled = value;
     if (!value && timer.chess) timer.reset();

@@ -445,19 +445,34 @@ class _CardBands extends StatelessWidget {
             width: _kTypeBand,
             child: _strip(),
           ),
+        // Arriba y abajo, en inglete sobre los lados (ver MitreClipper).
         Positioned(
           left: 0,
           right: 0,
           top: 0,
           height: _kFrame,
-          child: _horizontal(turns: 3),
+          child: ClipPath(
+            clipper: const MitreClipper(
+              left: _kNameBand,
+              right: _kFrame,
+              top: true,
+            ),
+            child: _horizontal(turns: 3),
+          ),
         ),
         Positioned(
           left: 0,
           right: 0,
           bottom: 0,
           height: _kFrame,
-          child: _horizontal(turns: 1),
+          child: ClipPath(
+            clipper: const MitreClipper(
+              left: _kNameBand,
+              right: _kFrame,
+              top: false,
+            ),
+            child: _horizontal(turns: 1),
+          ),
         ),
       ],
     );
@@ -1149,6 +1164,13 @@ class _WithClock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // En su propia capa: el botón del reloj cambia cada segundo y, al estar
+    // dentro de un LayoutBuilder, lo vuelve a colocar; sin la capa, eso
+    // repintaba el panel entero cada segundo.
+    return RepaintBoundary(child: _layout());
+  }
+
+  Widget _layout() {
     return LayoutBuilder(
       builder: (context, constraints) {
         final height = constraints.maxHeight;

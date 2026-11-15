@@ -12,6 +12,8 @@ import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
+import 'package:mtglifecounter/themed_dialog.dart';
+import 'package:mtglifecounter/time_up.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/updater.dart';
 import 'package:mtglifecounter/vibration.dart';
@@ -146,6 +148,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   final ValueNotifier<bool> _resetNotifier = ValueNotifier<bool>(false);
   // La pantalla entera, para que los paneles enseñen su trozo de la imagen.
   int _lifeChangeAmount = 1;
+  // Si se está enseñando el aviso de «¡Tiempo!».
+  bool _timeUp = false;
   String? _iconSkin;
 
   @override
@@ -218,9 +222,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     widget.settings.applyWakelock();
   }
 
-  // Al acabar la ronda (o el tiempo de un jugador del reloj de ajedrez) el
-  // móvil vibra tres veces, para notarlo en la mesa.
+  // Al acabar la ronda sale el aviso de «¡Tiempo!» y el móvil vibra tres
+  // veces, para notarlo en la mesa. En el reloj de ajedrez, cuando a un
+  // jugador se le acaba el suyo, solo vibra: la ronda sigue y el «¡Tiempo!»
+  // de los dos no toca.
   Future<void> _onTimeUp() async {
+    if (mounted && !widget.timer.chess) setState(() => _timeUp = true);
     if (!widget.settings.timerVibrate) return;
     for (var i = 0; i < 3; i++) {
       await vibrate(const Duration(milliseconds: 300));
@@ -256,44 +263,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _showResetConfirmationDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[800],
-          title: const Text(
-            'Reiniciar partida',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            '¿Estás seguro de que quieres reiniciar la partida? Se perderán todos los datos.',
-            style: TextStyle(color: Colors.white),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.white),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text(
-                'Aceptar',
-                style: TextStyle(color: Colors.white),
-              ),
-              onPressed: () {
-                _resetGame();
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
+  Future<void> _showResetConfirmationDialog() async {
+    final accepted = await showThemedConfirm(
+      context,
+      settings: widget.settings,
+      icon: Icons.restart_alt,
+      title: '¿Reiniciar la partida?',
+      message:
+          'Las vidas vuelven a $kInitialLife y se borra el historial. '
+          'El reloj de la ronda sigue como está.',
+      confirmLabel: 'Reiniciar',
+      destructive: true,
     );
+    if (accepted && mounted) _resetGame();
   }
 
   @override
@@ -364,13 +346,28 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           backgroundColor: Colors.black,
           body: Listener(
             onPointerUp: (_) => _retryWakelock(),
-            child: CounterLayout(
-              settings: settings,
-              game: game,
-              bar: bar,
-              lifeChangeAmount: amount,
-              onLifeChanged: _onLifeChanged,
-              timer: widget.timer,
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: CounterLayout(
+                    settings: settings,
+                    game: game,
+                    bar: bar,
+                    lifeChangeAmount: amount,
+                    onLifeChanged: _onLifeChanged,
+                    timer: widget.timer,
+                  ),
+                ),
+                if (_timeUp)
+                  Positioned.fill(
+                    child: TimeUpOverlay(
+                      look: look,
+                      flipTop: game.rotated,
+                      animate: settings.animations,
+                      onDone: () => setState(() => _timeUp = false),
+                    ),
+                  ),
+              ],
             ),
           ),
         );
