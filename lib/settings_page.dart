@@ -11,6 +11,7 @@ import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/skin.dart';
+import 'package:mtglifecounter/themed_dialog.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/update_badge.dart';
 import 'package:mtglifecounter/updater.dart';
@@ -452,36 +453,18 @@ class SettingsPage extends StatelessWidget {
   }
 
   Future<void> _confirmResetLook(BuildContext context) async {
-    final accepted = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: kCardColor,
-        title: const Text(
-          'Volver al aspecto por defecto',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
+    final accepted = await showThemedConfirm(
+      context,
+      settings: settings,
+      icon: Icons.restart_alt,
+      title: '¿Volver al aspecto por defecto?',
+      message:
           'La imagen de fondo, el foco, las mitades, las transparencias y las '
           'animaciones vuelven a lo que trae cada tema. El tema, la skin y '
           'la partida se quedan como están.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text(
-              'Cancelar',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Restablecer', style: TextStyle(color: kAccent)),
-          ),
-        ],
-      ),
+      confirmLabel: 'Restablecer',
     );
-    if (accepted == true) await settings.resetLook();
+    if (accepted) await settings.resetLook();
   }
 
   Widget _game() {

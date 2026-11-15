@@ -3,7 +3,7 @@ import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/hold_to_repeat.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
-import 'package:mtglifecounter/settings_page.dart';
+import 'package:mtglifecounter/themed_style.dart';
 
 /// El reloj de la barra central. Se pone ámbar a falta de 5 minutos (si el
 /// aviso está activado) y rojo al acabar, contando en negativo lo que se
@@ -168,6 +168,10 @@ class _SteadyLabel extends StatelessWidget {
 
 /// El panel del temporizador: tiempo grande, iniciar o pausar y reiniciar.
 /// Antes de empezar, la cuenta atrás deja cambiar la duración.
+///
+/// Va vestido como el tema ([ThemedStyle]): flota sobre la partida como una
+/// tarjeta del mismo estilo que los avisos (en el Old Border, una carta con
+/// botones de maná).
 Future<void> showTimerSheet(
   BuildContext context, {
   required RoundTimer timer,
@@ -178,182 +182,160 @@ Future<void> showTimerSheet(
   // iniciar quedaban fuera.
   return showModalBottomSheet<void>(
     context: context,
-    backgroundColor: kCardColor,
-    showDragHandle: true,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (context) => ListenableBuilder(
       listenable: Listenable.merge([timer, settings]),
-      builder: (context, _) {
-        final countdown = timer.mode == TimerMode.countdown;
-        final finished = timer.finished;
-        final warning = settings.timerWarning && timer.warning;
-        final state = finished
-            ? timer.running
-                  ? 'Se acabó el tiempo: lo que os habéis pasado'
-                  : 'Se acabó el tiempo (en pausa)'
-            : timer.running
-            ? 'En marcha'
-            : timer.started
-            ? 'En pausa'
-            : 'Preparado para empezar';
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Se puede cambiar de modo en cualquier momento: el tiempo que
-                // lleva la partida se mantiene.
-                SegmentedButton<TimerMode>(
-                  segments: const [
-                    ButtonSegment(
-                      value: TimerMode.countdown,
-                      icon: Icon(Icons.hourglass_bottom),
-                      label: Text('Cuenta atrás'),
-                    ),
-                    ButtonSegment(
-                      value: TimerMode.stopwatch,
-                      icon: Icon(Icons.timer_outlined),
-                      label: Text('Cronómetro'),
-                    ),
-                  ],
-                  selected: {settings.timerMode},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (modes) =>
-                      settings.timerMode = modes.first,
-                  style: SegmentedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    selectedForegroundColor: const Color(0xFF1A1306),
-                    selectedBackgroundColor: kAccent,
-                    side: const BorderSide(color: Color(0x40FFFFFF)),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  countdown ? 'Tiempo de ronda' : 'Tiempo de partida',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                // Con lo que se pasan puede ser «−1:02:03»: se encoge para
-                // caber en los móviles estrechos.
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(
-                    timerLabel(timer),
-                    style: TextStyle(
-                      color: finished
-                          ? const Color(0xFFF87171)
-                          : warning
-                          ? const Color(0xFFFBBF24)
-                          : Colors.white,
-                      fontSize: 84,
-                      fontWeight: FontWeight.w700,
-                      height: 1.1,
-                      fontFeatures: kNumberFeatures,
-                    ),
-                  ),
-                ),
-                Text(
-                  state,
-                  style: const TextStyle(color: kMutedText, fontSize: 14),
-                ),
-                if (countdown && !timer.started) ...[
-                  const SizedBox(height: 14),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Builder(
-                        builder: (context) {
-                          final step =
-                              settings.roundMinutes >
-                                  AppSettings.minRoundMinutes
-                              ? () => settings.roundMinutes -= 1
-                              : null;
-                          return HoldToRepeat(
-                            onStep: step,
-                            label: 'Un minuto menos',
-                            child: IconButton.filledTonal(
-                              onPressed: step,
-                              icon: const Icon(Icons.remove),
-                            ),
-                          );
-                        },
-                      ),
-                      SizedBox(
-                        width: 110,
-                        child: Text(
-                          '${settings.roundMinutes} min',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                      Builder(
-                        builder: (context) {
-                          final step =
-                              settings.roundMinutes <
-                                  AppSettings.maxRoundMinutes
-                              ? () => settings.roundMinutes += 1
-                              : null;
-                          return HoldToRepeat(
-                            onStep: step,
-                            label: 'Un minuto más',
-                            child: IconButton.filledTonal(
-                              onPressed: step,
-                              icon: const Icon(Icons.add),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-                const SizedBox(height: 20),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton(
-                        onPressed: timer.started ? timer.reset : null,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          minimumSize: const Size.fromHeight(50),
-                        ),
-                        child: const Text('Reiniciar'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: FilledButton(
-                        onPressed: timer.running ? timer.pause : timer.start,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: kAccent,
-                          foregroundColor: const Color(0xFF1A1306),
-                          minimumSize: const Size.fromHeight(50),
-                        ),
-                        child: Text(
-                          timer.running
-                              ? 'Pausar'
-                              : timer.started
-                              ? 'Reanudar'
-                              : 'Iniciar',
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+      builder: (context, _) => _TimerSheet(timer: timer, settings: settings),
     ),
   );
+}
+
+class _TimerSheet extends StatelessWidget {
+  const _TimerSheet({required this.timer, required this.settings});
+
+  final RoundTimer timer;
+  final AppSettings settings;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = ThemedStyle.of(settings.look, settings.skin);
+    final countdown = timer.mode == TimerMode.countdown;
+    final finished = timer.finished;
+    final warning = settings.timerWarning && timer.warning;
+    final state = finished
+        ? timer.running
+              ? 'Se acabó el tiempo: lo que os habéis pasado'
+              : 'Se acabó el tiempo (en pausa)'
+        : timer.running
+        ? 'En marcha'
+        : timer.started
+        ? 'En pausa'
+        : 'Preparado para empezar';
+    final less = settings.roundMinutes > AppSettings.minRoundMinutes
+        ? () => settings.roundMinutes -= 1
+        : null;
+    final more = settings.roundMinutes < AppSettings.maxRoundMinutes
+        ? () => settings.roundMinutes += 1
+        : null;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: Material(
+              type: MaterialType.transparency,
+              child: style.frame(
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Se puede cambiar de modo en cualquier momento: el
+                    // tiempo que lleva la partida se mantiene.
+                    style.selector<TimerMode>(
+                      options: const [
+                        (
+                          TimerMode.countdown,
+                          Icons.hourglass_bottom,
+                          'Cuenta atrás',
+                        ),
+                        (
+                          TimerMode.stopwatch,
+                          Icons.timer_outlined,
+                          'Cronómetro',
+                        ),
+                      ],
+                      selected: settings.timerMode,
+                      onSelected: (mode) => settings.timerMode = mode,
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      countdown ? 'Tiempo de ronda' : 'Tiempo de partida',
+                      textAlign: TextAlign.center,
+                      style: style.titleStyle,
+                    ),
+                    const SizedBox(height: 4),
+                    // Con lo que se pasan puede ser «−1:02:03»: se encoge
+                    // para caber en los móviles estrechos.
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        timerLabel(timer),
+                        style: style.numberStyle(
+                          84,
+                          finished
+                              ? style.dangerInk
+                              : warning
+                              ? style.warnInk
+                              : style.ink,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      state,
+                      textAlign: TextAlign.center,
+                      style: style.bodyStyle.copyWith(fontSize: 14),
+                    ),
+                    if (countdown && !timer.started) ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          HoldToRepeat(
+                            onStep: less,
+                            label: 'Un minuto menos',
+                            child: style.roundButton(Icons.remove, onTap: less),
+                          ),
+                          SizedBox(
+                            width: 110,
+                            child: Text(
+                              '${settings.roundMinutes} min',
+                              textAlign: TextAlign.center,
+                              style: style.titleStyle.copyWith(fontSize: 19),
+                            ),
+                          ),
+                          HoldToRepeat(
+                            onStep: more,
+                            label: 'Un minuto más',
+                            child: style.roundButton(Icons.add, onTap: more),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: style.button(
+                            'Reiniciar',
+                            kind: ButtonKind.plain,
+                            onTap: timer.started ? timer.reset : null,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: style.button(
+                            timer.running
+                                ? 'Pausar'
+                                : timer.started
+                                ? 'Reanudar'
+                                : 'Iniciar',
+                            kind: ButtonKind.accent,
+                            onTap: timer.running ? timer.pause : timer.start,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

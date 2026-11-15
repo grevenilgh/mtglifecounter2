@@ -266,19 +266,34 @@ class CenterBar extends StatelessWidget {
                       width: _frameWidth,
                       child: _frameStrip(_opaque),
                     ),
+                    // En inglete sobre los lados (ver MitreClipper).
                     Positioned(
                       left: 0,
                       right: 0,
                       top: 0,
                       height: _frameWidth,
-                      child: _frameBand(_opaque, turns: 3),
+                      child: ClipPath(
+                        clipper: const MitreClipper(
+                          left: _frameWidth,
+                          right: _frameWidth,
+                          top: true,
+                        ),
+                        child: _frameBand(_opaque, turns: 3),
+                      ),
                     ),
                     Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       height: _frameWidth,
-                      child: _frameBand(_opaque, turns: 1),
+                      child: ClipPath(
+                        clipper: const MitreClipper(
+                          left: _frameWidth,
+                          right: _frameWidth,
+                          top: false,
+                        ),
+                        child: _frameBand(_opaque, turns: 1),
+                      ),
                     ),
                   ],
                 ),

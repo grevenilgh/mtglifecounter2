@@ -323,7 +323,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.tap(find.byTooltip('Reiniciar partida'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Aceptar'));
+      await tester.tap(find.text('Reiniciar'));
       await tester.pump(const Duration(milliseconds: 800));
       expect(game.top.life, kInitialLife);
       expect(game.top.history, isEmpty);

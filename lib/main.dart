@@ -12,6 +12,7 @@ import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/number_stepper.dart';
 import 'package:mtglifecounter/round_timer.dart';
 import 'package:mtglifecounter/settings_page.dart';
+import 'package:mtglifecounter/themed_dialog.dart';
 import 'package:mtglifecounter/time_up.dart';
 import 'package:mtglifecounter/timer_view.dart';
 import 'package:mtglifecounter/updater.dart';
@@ -253,44 +254,19 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     );
   }
 
-  void _showResetConfirmationDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          backgroundColor: Colors.grey[800],
-          title: const Text(
-            'Reiniciar partida',
-            style: TextStyle(color: Colors.white),
-          ),
-          content: const Text(
-            '¿Estás seguro de que quieres reiniciar la partida? Se perderán todos los datos.',
-            style: TextStyle(color: Colors.white),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text(
-                'Cancelar',
-                style: TextStyle(color: Colors.white),
-              ),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: const Text(
-                'Aceptar',
-                style: TextStyle(color: Colors.white),
-              ),
-              onPressed: () {
-                _resetGame();
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
+  Future<void> _showResetConfirmationDialog() async {
+    final accepted = await showThemedConfirm(
+      context,
+      settings: widget.settings,
+      icon: Icons.restart_alt,
+      title: '¿Reiniciar la partida?',
+      message:
+          'Las vidas vuelven a $kInitialLife y se borra el historial. '
+          'El reloj de la ronda sigue como está.',
+      confirmLabel: 'Reiniciar',
+      destructive: true,
     );
+    if (accepted && mounted) _resetGame();
   }
 
   @override
