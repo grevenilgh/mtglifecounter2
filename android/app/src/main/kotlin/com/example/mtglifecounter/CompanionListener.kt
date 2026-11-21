@@ -5,7 +5,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -32,18 +31,45 @@ import java.io.File
  */
 class CompanionListener : NotificationListenerService() {
 
+    // Si Android lo conecta y lo desconecta (y cuándo): si se desconecta en
+    // un torneo, los avisos de ese rato no llegan.
+    override fun onListenerConnected() {
+        CompanionDebug.log(
+            this, "notif", "connected",
+            JSONObject()
+                .put("on", isOn(this))
+                .put("companion", CompanionDebug.version(this, COMPANION) ?: JSONObject.NULL)
+                .put("app", CompanionDebug.version(this, packageName) ?: JSONObject.NULL)
+                .put("battery", CompanionDebug.battery(this) ?: JSONObject.NULL),
+        )
+    }
+
+    override fun onListenerDisconnected() {
+        CompanionDebug.log(this, "notif", "disconnected")
+    }
+
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         // Para probar sin torneo: los avisos que se mandan desde el PC con
         // `adb shell cmd notification post -t "Ronda iniciada" companion x`
         // salen de la shell, que solo usa adb, y valen como de Companion.
         val test = sbn.packageName == ADB_SHELL && sbn.tag == "companion"
         if (sbn.packageName != COMPANION && !test) return
-        // Sin activar en Ajustes no se mira nada.
-        if (!isOn(this)) return
-        logRaw(describe("posted", sbn))
         val title = sbn.notification.extras
-            ?.getCharSequence("android.title")?.toString() ?: return
-        val kind = kindOf(title) ?: return
+            ?.getCharSequence("android.title")?.toString()
+        val trace = JSONObject()
+            .put("title", title ?: JSONObject.NULL)
+            .put("postTime", sbn.postTime)
+            .put("test", test)
+            .put("battery", CompanionDebug.battery(this) ?: JSONObject.NULL)
+        // Sin activar en Ajustes no se mira nada (pero se apunta que llegó).
+        if (!isOn(this)) {
+            CompanionDebug.log(this, "notif", "ignored-off", trace)
+            return
+        }
+        logRaw(describe("posted", sbn))
+        val kind = title?.let { kindOf(it) }
+        CompanionDebug.log(this, "notif", "posted", trace.put("kind", kind ?: JSONObject.NULL))
+        if (kind == null) return
         record(this, kind, sbn.postTime)
         sendBroadcast(Intent(ACTION_CHANGED).setPackage(packageName))
     }
@@ -94,12 +120,7 @@ class CompanionListener : NotificationListenerService() {
 
     private fun logRaw(o: JSONObject) {
         o.put("at", System.currentTimeMillis())
-        try {
-            val dir = getExternalFilesDir(null) ?: filesDir
-            File(dir, "companion_log.jsonl").appendText(o.toString() + "\n")
-        } catch (e: Exception) {
-            Log.w("CompanionLog", "no se pudo guardar: $e")
-        }
+        CompanionDebug.append(this, "companion_log.jsonl", o)
     }
 
     companion object {

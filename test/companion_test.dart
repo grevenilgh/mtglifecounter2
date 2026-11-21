@@ -53,6 +53,12 @@ class FakeBridge implements CompanionBridge {
 
   @override
   Future<List<CompanionEvent>> events() async => List.of(list);
+
+  final List<(String, Map<String, Object?>)> logs = [];
+
+  @override
+  Future<void> log(String ev, Map<String, Object?> data) async =>
+      logs.add((ev, data));
 }
 
 void main() {
@@ -311,6 +317,27 @@ void main() {
       link.apply([clock(const Duration(minutes: 20), now)]);
       expect(timer.chess, isTrue);
       expect(timer.started, isFalse);
+    });
+
+    test('apunta lo que hace con cada aviso (trazas provisionales)', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final link = newLink(timer);
+      final start = now;
+      now = now.add(const Duration(minutes: 1));
+      link.apply([ev(CompanionEventKind.roundStarted, start)]);
+      final (name, data) = bridge.logs.last;
+      expect(name, 'event');
+      expect(data['kind'], 'round_started');
+      expect(data['decision'], 'applied');
+      expect((data['before']! as Map)['running'], isFalse);
+      expect((data['after']! as Map)['running'], isTrue);
+      expect((data['after']! as Map)['shownMs'], 51 * 60 * 1000);
+      // Apagado no apunta nada.
+      bridge.logs.clear();
+      link.enabled = false;
+      link.trace('app-paused');
+      expect(bridge.logs.map((l) => l.$1), ['disabled']);
     });
 
     test('sync lee los avisos del servicio y se llama cuando cambian', () async {

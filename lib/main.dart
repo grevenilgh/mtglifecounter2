@@ -176,7 +176,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     _syncSettings();
     widget.timer.onFinished = _onTimeUp;
     // Los avisos de Companion que llegaron con la app cerrada.
-    widget.companion?.sync();
+    widget.companion?.sync('app-open');
     if (widget.showWelcome) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => showWelcome(
@@ -201,11 +201,14 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   // botón de «Acerca de».
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) {
+      widget.companion?.trace('app-paused');
+    }
     if (state != AppLifecycleState.resumed) {
       widget.storage.flush();
     } else {
       // Al volver de Companion, la ronda puede haber empezado.
-      widget.companion?.sync();
+      widget.companion?.sync('app-resumed');
     }
   }
 

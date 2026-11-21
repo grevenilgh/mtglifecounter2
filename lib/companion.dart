@@ -69,6 +69,10 @@ abstract class CompanionBridge {
   /// Los avisos apuntados (los del último día).
   Future<List<CompanionEvent>> events();
 
+  /// TRAZAS PROVISIONALES: apunta [ev] en el registro de diagnóstico del
+  /// móvil (`companion_debug.jsonl`), para analizar un torneo.
+  Future<void> log(String ev, Map<String, Object?> data);
+
   /// Se llama cuando el servicio apunta un aviso nuevo (con la app abierta).
   set onChanged(VoidCallback? callback);
 }
@@ -112,6 +116,10 @@ class AndroidCompanionBridge implements CompanionBridge {
 
   @override
   Future<void> openAppInfo() => _call<void>('openAppInfo');
+
+  @override
+  Future<void> log(String ev, Map<String, Object?> data) =>
+      _call<void>('log', {'ev': ev, 'data': data});
 
   @override
   Future<List<CompanionEvent>> events() async {
@@ -183,7 +191,7 @@ class CompanionLink extends ChangeNotifier {
     _lastSeen = _date(_prefs.getInt(_kLastSeen));
     _lastEvent = _date(_prefs.getInt(_kLastEvent));
     _detached = _prefs.getBool(_kDetached) ?? false;
-    this.bridge.onChanged = sync;
+    this.bridge.onChanged = () => sync('changed');
     // Que el servicio esté como dice Ajustes. Lo que llegó con la app cerrada
     // se aplica con el primer [sync].
     this.bridge.setEnabled(enabled);
@@ -233,6 +241,9 @@ class CompanionLink extends ChangeNotifier {
       _detached = false;
     }
     _save();
+    // Apagado no se apunta nada: se deja escrito antes.
+    if (!value) bridge.log('disabled', const {});
+    trace('enabled');
     notifyListeners();
   }
 
@@ -256,14 +267,17 @@ class CompanionLink extends ChangeNotifier {
     if (value == !_detached) return;
     _detached = !value;
     _save();
+    trace(value ? 'attached' : 'detached');
     notifyListeners();
   }
 
   /// Lee los avisos nuevos y se los aplica al reloj. Se llama al abrir la
   /// app, al volver a ella y cuando el servicio apunta uno.
-  Future<void> sync() async {
+  Future<void> sync([String why = 'sync']) async {
     if (!_enabled) return;
-    apply(await bridge.events());
+    final events = await bridge.events();
+    trace(why, {'events': events.length});
+    apply(events);
   }
 
   /// Aplica al reloj los avisos que aún no se habían visto, en orden.
@@ -278,15 +292,30 @@ class CompanionLink extends ChangeNotifier {
           ..sort((a, b) => a.at.compareTo(b.at));
     for (final event in fresh) {
       _lastSeen = event.at;
+      final before = _timerState();
+      void traceEvent(String decision) => trace('event', {
+        'kind': event.kind.wire,
+        'eventAt': event.at.millisecondsSinceEpoch,
+        'left': event.left?.inMilliseconds,
+        'decision': decision,
+        'before': before,
+        'after': _timerState(),
+      });
       // Lo de un evento ya acabado no se aplica.
-      if (now.difference(event.at) >= idleLimit) continue;
+      if (now.difference(event.at) >= idleLimit) {
+        traceEvent('too-old');
+        continue;
+      }
       final last = _lastEvent;
       // Un evento nuevo vuelve a engancharse aunque el anterior se soltara.
       if (last == null || event.at.difference(last) >= idleLimit) {
         _detached = false;
       }
       _lastEvent = event.at;
-      if (_detached) continue;
+      if (_detached) {
+        traceEvent('detached');
+        continue;
+      }
       switch (event.kind) {
         case CompanionEventKind.eventStarted:
           break;
@@ -299,9 +328,33 @@ class CompanionLink extends ChangeNotifier {
           final left = event.left;
           if (left != null) _timer.follow(left, event.at);
       }
+      traceEvent('applied');
     }
     _save();
     notifyListeners();
+  }
+
+  // ---- TRAZAS PROVISIONALES (quitar cuando se sepa todo; ver CLAUDE.md) ----
+
+  /// Cómo está el reloj, para las trazas.
+  Map<String, Object?> _timerState() => {
+    'mode': _timer.mode.name,
+    'running': _timer.running,
+    'started': _timer.started,
+    'lengthMs': _timer.roundLength.inMilliseconds,
+    'shownMs': _timer.shown.inMilliseconds,
+  };
+
+  /// Apunta [ev] en el registro de diagnóstico del móvil con el estado del
+  /// reloj y del enganche. Se usa también al abrir la app y volver a ella.
+  void trace(String ev, [Map<String, Object?> data = const {}]) {
+    if (!_enabled) return;
+    bridge.log(ev, {
+      ...data,
+      'timer': _timerState(),
+      'inEvent': inEvent,
+      'attached': attached,
+    });
   }
 
   void _save() {

@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- El servicio que lee la pantalla de Companion. Android solo le pasa lo de
      los paquetes de packageNames: lo de las demás apps ni le llega. No hace
-     gestos ni toca nada (sin canPerformGestures). -->
+     gestos ni toca nada (sin canPerformGestures). flagIncludeNotImportantViews
+     es para las trazas provisionales (que se vea todo lo de la pantalla). -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:packageNames="com.wizards.winter_orb"
     android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:accessibilityFlags="flagReportViewIds"
+    android:accessibilityFlags="flagReportViewIds|flagIncludeNotImportantViews"
     android:canRetrieveWindowContent="true"
     android:notificationTimeout="1000"
     android:description="@string/companion_screen_description" />

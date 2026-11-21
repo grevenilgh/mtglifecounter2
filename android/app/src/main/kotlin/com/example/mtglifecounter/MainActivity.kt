@@ -58,6 +58,18 @@ class MainActivity : FlutterActivity() {
                         openCompanionAccess()
                         result.success(null)
                     }
+                    // Trazas provisionales de la app (ver CompanionDebug.kt).
+                    "log" -> {
+                        val args = call.arguments as Map<*, *>
+                        val data = org.json.JSONObject()
+                        (args["data"] as? Map<*, *>)?.forEach { (k, v) ->
+                            // wrap: los mapas de dentro (el reloj antes y
+                            // después) como objetos, no como texto.
+                            data.put(k.toString(), org.json.JSONObject.wrap(v) ?: org.json.JSONObject.NULL)
+                        }
+                        CompanionDebug.log(this, "app", args["ev"].toString(), data)
+                        result.success(null)
+                    }
                     "setScreenEnabled" -> {
                         CompanionScreenService.setOn(this, call.arguments as Boolean)
                         result.success(null)

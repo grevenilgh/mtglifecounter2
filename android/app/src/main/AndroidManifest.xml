@@ -137,6 +137,9 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Companion: para apuntar su versión en las trazas provisionales
+             (CompanionDebug.version); sin esto Android no deja verla. -->
+        <package android:name="com.wizards.winter_orb"/>
         <!-- Los enlaces de «Acerca de» (url_launcher). -->
         <intent>
             <action android:name="android.intent.action.VIEW"/>
