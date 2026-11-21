@@ -410,6 +410,14 @@ void main() {
       expect(timer.running, isTrue);
       expect(timer.remaining, const Duration(minutes: 45));
       expect(linkMark(), findsOneWidget);
+      // La cadena va en lugar del icono del reloj, no al lado.
+      expect(
+        find.descendant(
+          of: find.byType(TimerButton),
+          matching: find.byIcon(Icons.timer_outlined),
+        ),
+        findsNothing,
+      );
       await close(tester);
     });
 

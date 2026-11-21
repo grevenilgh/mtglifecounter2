@@ -32,7 +32,7 @@ class TimerButton extends StatelessWidget {
   final bool warningEnabled;
   final VoidCallback onTap;
 
-  /// Si va enganchado a Companion, lleva un eslabón delante.
+  /// Si va enganchado a Companion, lleva una cadena en lugar del icono.
   final CompanionLink? companion;
 
   @override
@@ -116,12 +116,12 @@ class TimerButton extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Enganchado a Companion: arranca y se para solo.
-                    if (linked) ...[
-                      Icon(Icons.link_rounded, size: 18, color: foreground),
-                      const SizedBox(width: 3),
-                    ],
-                    if (paused)
+                    // Enganchado a Companion (arranca y se para solo), la
+                    // cadena en lugar del icono de siempre, para no
+                    // ensanchar la barra.
+                    if (linked)
+                      Icon(Icons.link_rounded, size: 18, color: foreground)
+                    else if (paused)
                       Icon(Icons.pause_rounded, size: 18, color: foreground)
                     else if (chess)
                       ChessClockIcon(color: foreground, size: 18)
