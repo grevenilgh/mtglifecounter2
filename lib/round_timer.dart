@@ -250,6 +250,32 @@ class RoundTimer extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Lo pone en hora con el reloj de Companion, leído en su pantalla: a las
+  /// [at] le quedaba [left] y estaba en marcha. Queda en cuenta atrás y en
+  /// marcha; si hace falta, la ronda se alarga para que quepa. El de ajedrez
+  /// no se toca, y si ya va a menos de 2 segundos de eso, tampoco.
+  void follow(Duration left, DateTime at) {
+    if (chess) return;
+    final now = _clock();
+    final leftNow = left - now.difference(at);
+    if (mode == TimerMode.countdown &&
+        running &&
+        (remaining - leftNow).abs() < const Duration(seconds: 2)) {
+      return;
+    }
+    _ticker?.cancel();
+    _mode = TimerMode.countdown;
+    modeListenable.value = _mode;
+    final minutes = Duration(minutes: (left.inSeconds / 60).ceil());
+    roundLength = minutes > defaultLength ? minutes : defaultLength;
+    _accumulated = Duration.zero;
+    _finishedNotified = false;
+    _startedAt = at.subtract(roundLength - left);
+    _save();
+    if (!_settle(notify: false)) _tick();
+    notifyListeners();
+  }
+
   void pause() {
     if (!running) return;
     _bank();

@@ -34,6 +34,20 @@ class FakeBridge implements CompanionBridge {
   @override
   Future<void> openAccess() async => accessOpened++;
 
+  bool screenAccess = false;
+  final List<bool> screenCalls = [];
+  int screenOpened = 0;
+
+  @override
+  Future<void> setScreenEnabled(bool enabled) async =>
+      screenCalls.add(enabled);
+
+  @override
+  Future<bool> hasScreenAccess() async => screenAccess;
+
+  @override
+  Future<void> openScreenAccess() async => screenOpened++;
+
   @override
   Future<void> openAppInfo() async {}
 
@@ -219,6 +233,86 @@ void main() {
       expect(timer.started, isFalse);
     });
 
+    CompanionEvent clock(Duration left, DateTime at) =>
+        CompanionEvent(CompanionEventKind.screenClock, at, left: left);
+
+    test('la pantalla de Companion pone el reloj en hora', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final link = CompanionLink(
+        prefs,
+        timer,
+        enabled: true,
+        bridge: bridge,
+        clock: () => now,
+      );
+      // Va en cronómetro y desfasado: pasa a cuenta atrás con lo de Companion.
+      timer.mode = TimerMode.stopwatch;
+      timer.start();
+      final seen = now;
+      now = now.add(const Duration(seconds: 30));
+      link.apply([clock(const Duration(minutes: 37, seconds: 12), seen)]);
+      expect(timer.mode, TimerMode.countdown);
+      expect(timer.running, isTrue);
+      expect(timer.remaining, const Duration(minutes: 36, seconds: 42));
+      expect(link.engaged, isTrue);
+    });
+
+    test('si Companion tiene más tiempo que la ronda, se alarga', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final link = CompanionLink(
+        prefs,
+        timer,
+        enabled: true,
+        bridge: bridge,
+        clock: () => now,
+      );
+      link.apply([clock(const Duration(minutes: 54, seconds: 18), now)]);
+      expect(timer.roundLength, const Duration(minutes: 55));
+      expect(timer.remaining, const Duration(minutes: 54, seconds: 18));
+    });
+
+    test('apagado, o suelto, la pantalla no toca el reloj', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final off = newLink(timer, enabled: false);
+      off.apply([clock(const Duration(minutes: 20), now)]);
+      expect(timer.started, isFalse);
+      // Suelto dentro de un evento (uno nuevo lo volvería a enganchar).
+      final link = newLink(timer)
+        ..apply([ev(CompanionEventKind.eventStarted, now)])
+        ..attached = false;
+      now = now.add(const Duration(seconds: 5));
+      link.apply([clock(const Duration(minutes: 20), now)]);
+      expect(timer.started, isFalse);
+    });
+
+    test('la pantalla se enciende y apaga con el mismo interruptor', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final link = newLink(timer, enabled: false);
+      link.enabled = true;
+      link.enabled = false;
+      expect(bridge.screenCalls, [false, true, false]);
+      expect(bridge.enabledCalls, [false, true, false]);
+    });
+
+    test('el reloj de ajedrez no se pone en hora con la pantalla', () {
+      final timer = newTimer(mode: TimerMode.chess);
+      addTearDown(timer.dispose);
+      final link = CompanionLink(
+        prefs,
+        timer,
+        enabled: true,
+        bridge: bridge,
+        clock: () => now,
+      );
+      link.apply([clock(const Duration(minutes: 20), now)]);
+      expect(timer.chess, isTrue);
+      expect(timer.started, isFalse);
+    });
+
     test('sync lee los avisos del servicio y se llama cuando cambian', () async {
       final timer = newTimer();
       addTearDown(timer.dispose);
@@ -360,6 +454,60 @@ void main() {
       expect(bridge.accessOpened, 1);
       // Sigue faltando: lo dice debajo del interruptor.
       expect(find.text('Dar acceso'), findsOneWidget);
+      await close(tester);
+    });
+
+    Future<void> openCompanionSettings(WidgetTester tester) async {
+      await tester.tap(find.byTooltip('Ajustes'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Partida'));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Eventos de Companion'),
+        200,
+        scrollable: find
+            .ancestor(
+              of: find.text('En pantalla'),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('leer la pantalla es opcional y explica el permiso', (
+      tester,
+    ) async {
+      await pumpApp(tester, enabled: false);
+      await openCompanionSettings(tester);
+      // Sin los eventos activados no sale.
+      final ask = find.text('Leer la pantalla de Companion');
+      expect(ask, findsNothing);
+      settings.companionEnabled = true;
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(ask);
+      await tester.pumpAndSettle();
+      await tester.tap(ask);
+      await tester.pumpAndSettle();
+      // El aviso explica el permiso antes de mandar a Accesibilidad.
+      expect(find.textContaining('solo recibe lo de Companion'), findsWidgets);
+      await tester.tap(find.text('Ir a Accesibilidad'));
+      await tester.pumpAndSettle();
+      expect(bridge.screenOpened, 1);
+      await close(tester);
+    });
+
+    testWidgets('con el permiso dado lo dice y no lo vuelve a pedir', (
+      tester,
+    ) async {
+      bridge.screenAccess = true;
+      await pumpApp(tester);
+      await openCompanionSettings(tester);
+      expect(find.text('Leer la pantalla de Companion'), findsNothing);
+      expect(
+        find.textContaining('También se pone en hora al abrir Companion'),
+        findsOneWidget,
+      );
       await close(tester);
     });
 

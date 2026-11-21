@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El servicio que lee la pantalla de Companion. Android solo le pasa lo de
+     los paquetes de packageNames: lo de las demás apps ni le llega. No hace
+     gestos ni toca nada (sin canPerformGestures). -->
+<accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
+    android:packageNames="com.wizards.winter_orb"
+    android:accessibilityEventTypes="typeWindowStateChanged|typeWindowContentChanged"
+    android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagReportViewIds"
+    android:canRetrieveWindowContent="true"
+    android:notificationTimeout="1000"
+    android:description="@string/companion_screen_description" />

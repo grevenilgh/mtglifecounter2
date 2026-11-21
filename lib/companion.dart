@@ -12,7 +12,11 @@ enum CompanionEventKind {
   roundStarted('round_started'),
 
   /// «Ronda completada»: el organizador cerró la ronda.
-  roundCompleted('round_completed');
+  roundCompleted('round_completed'),
+
+  /// El reloj de Companion leído en su pantalla, en marcha, con lo que le
+  /// quedaba ([CompanionEvent.left]).
+  screenClock('screen_clock');
 
   const CompanionEventKind(this.wire);
 
@@ -26,10 +30,13 @@ enum CompanionEventKind {
 /// Un aviso de Companion, con la hora a la que llegó.
 @immutable
 class CompanionEvent {
-  const CompanionEvent(this.kind, this.at);
+  const CompanionEvent(this.kind, this.at, {this.left});
 
   final CompanionEventKind kind;
   final DateTime at;
+
+  /// En [CompanionEventKind.screenClock], lo que le quedaba en [at].
+  final Duration? left;
 }
 
 /// Lo que hace falta de Android: el servicio que lee los avisos de Companion
@@ -44,6 +51,16 @@ abstract class CompanionBridge {
 
   /// Abre la pantalla de Android donde se da el acceso.
   Future<void> openAccess();
+
+  /// Enciende o apaga la lectura de la pantalla de Companion
+  /// (`CompanionScreenService.kt`).
+  Future<void> setScreenEnabled(bool enabled);
+
+  /// Si el servicio que lee la pantalla está activado en Accesibilidad.
+  Future<bool> hasScreenAccess();
+
+  /// Abre la pantalla de Accesibilidad de Android donde se activa.
+  Future<void> openScreenAccess();
 
   /// Abre la información de la app, donde se permiten los ajustes
   /// restringidos (Android 13+ los pide a las apps instaladas con un APK).
@@ -83,6 +100,17 @@ class AndroidCompanionBridge implements CompanionBridge {
   Future<void> openAccess() => _call<void>('openAccess');
 
   @override
+  Future<void> setScreenEnabled(bool enabled) =>
+      _call<void>('setScreenEnabled', enabled);
+
+  @override
+  Future<bool> hasScreenAccess() async =>
+      await _call<bool>('hasScreenAccess') ?? false;
+
+  @override
+  Future<void> openScreenAccess() => _call<void>('openScreenAccess');
+
+  @override
   Future<void> openAppInfo() => _call<void>('openAppInfo');
 
   @override
@@ -93,7 +121,14 @@ class AndroidCompanionBridge implements CompanionBridge {
         if (CompanionEventKind.fromWire(item['kind'] as String?)
             case final kind?)
           if (item['at'] case final int at)
-            CompanionEvent(kind, DateTime.fromMillisecondsSinceEpoch(at)),
+            CompanionEvent(
+              kind,
+              DateTime.fromMillisecondsSinceEpoch(at),
+              left: switch (item['left']) {
+                final int ms => Duration(milliseconds: ms),
+                _ => null,
+              },
+            ),
     ];
   }
 
@@ -121,6 +156,9 @@ class AndroidCompanionBridge implements CompanionBridge {
 ///   corrido ese rato. El de ajedrez solo se reinicia: lo arranca la primera
 ///   pulsación.
 /// * «Ronda completada» lo para.
+/// * Con el permiso de accesibilidad (opcional), cada vez que la pantalla de
+///   Companion enseña su reloj en marcha, el de la app se pone en hora con
+///   él ([RoundTimer.follow]).
 /// * Companion no avisa del final del torneo: se suelta solo a las
 ///   [idleLimit] sin avisos.
 ///
@@ -128,7 +166,7 @@ class AndroidCompanionBridge implements CompanionBridge {
 /// acabe ese evento no toca el reloj.
 ///
 /// Companion no manda el aviso si está abierta en ese momento (lo enseña
-/// dentro): esa ronda no llega y el reloj se arranca a mano.
+/// dentro): esa ronda no llega, y sin la pantalla el reloj se arranca a mano.
 class CompanionLink extends ChangeNotifier {
   CompanionLink(
     this._prefs,
@@ -139,6 +177,9 @@ class CompanionLink extends ChangeNotifier {
   }) : bridge = bridge ?? AndroidCompanionBridge(),
        _clock = clock ?? DateTime.now,
        _enabled = enabled {
+    // La lectura de la pantalla va con el mismo interruptor: funciona si
+    // además se da el permiso de accesibilidad.
+    this.bridge.setScreenEnabled(enabled);
     _lastSeen = _date(_prefs.getInt(_kLastSeen));
     _lastEvent = _date(_prefs.getInt(_kLastEvent));
     _detached = _prefs.getBool(_kDetached) ?? false;
@@ -184,6 +225,7 @@ class CompanionLink extends ChangeNotifier {
     if (value == _enabled) return;
     _enabled = value;
     bridge.setEnabled(value);
+    bridge.setScreenEnabled(value);
     if (value) {
       _lastSeen = _clock();
     } else {
@@ -253,6 +295,9 @@ class CompanionLink extends ChangeNotifier {
           _timer.startFrom(event.at);
         case CompanionEventKind.roundCompleted:
           _timer.pause();
+        case CompanionEventKind.screenClock:
+          final left = event.left;
+          if (left != null) _timer.follow(left, event.at);
       }
     }
     _save();

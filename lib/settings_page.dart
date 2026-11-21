@@ -1242,6 +1242,7 @@ class CompanionSettings extends StatefulWidget {
 class _CompanionSettingsState extends State<CompanionSettings>
     with WidgetsBindingObserver {
   bool? _access;
+  bool? _screenAccess;
 
   @override
   void initState() {
@@ -1262,8 +1263,37 @@ class _CompanionSettingsState extends State<CompanionSettings>
   }
 
   Future<void> _checkAccess() async {
-    final access = await widget.link.bridge.hasAccess();
-    if (mounted) setState(() => _access = access);
+    final bridge = widget.link.bridge;
+    final access = await bridge.hasAccess();
+    final screen = await bridge.hasScreenAccess();
+    if (mounted) {
+      setState(() {
+        _access = access;
+        _screenAccess = screen;
+      });
+    }
+  }
+
+  // Antes de mandar a Accesibilidad se explica qué se lee y por qué Android
+  // avisa tan serio: el aviso de Android es el mismo para cualquier app.
+  Future<void> _askScreen() async {
+    final go = await showThemedConfirm(
+      context,
+      settings: widget.settings,
+      icon: Icons.visibility_outlined,
+      title: 'Leer la pantalla de Companion',
+      message:
+          'Android lo llama «accesibilidad», como los lectores de pantalla. '
+          'Te avisará de que la app podrá ver la pantalla y controlarla: es '
+          'el aviso de siempre, pero esta solo recibe lo de Companion (las '
+          'demás apps ni le llegan), no toca nada y nada sale del móvil.\n\n'
+          'En Accesibilidad, abre «Pantalla de Companion» y actívalo. Si '
+          'Android dice que es un ajuste restringido, abre la información de '
+          'la app, toca ⋮ y «Permitir ajustes restringidos», y vuelve a '
+          'probar.',
+      confirmLabel: 'Ir a Accesibilidad',
+    );
+    if (go) await widget.link.bridge.openScreenAccess();
   }
 
   Future<void> _set(bool value) async {
@@ -1296,8 +1326,8 @@ class _CompanionSettingsState extends State<CompanionSettings>
               'En un torneo, el reloj arranca solo cuando Companion avisa '
               'de que empieza la ronda (con la duración de aquí) y se para '
               'cuando avisa de que acaba. Si tienes Companion abierto en ese '
-              'momento no avisa: arráncalo a mano. Se suelta desde el reloj '
-              'de la barra.',
+              'momento no avisa: para eso está leer su pantalla (abajo). Se '
+              'suelta desde el reloj de la barra.',
           value: on,
           onChanged: _set,
         ),
@@ -1320,6 +1350,26 @@ class _CompanionSettingsState extends State<CompanionSettings>
                 child: const Text('Información de la app'),
               ),
             ],
+          ),
+        ],
+        // La pantalla de Companion: opcional, con el mismo interruptor. Solo
+        // pide otro permiso, el de accesibilidad.
+        if (on && _screenAccess == true)
+          const _Help(
+            '✓ También se pone en hora al abrir Companion: cada vez que se '
+            've su reloj de la ronda corriendo, el de aquí se ajusta a él.',
+          ),
+        if (on && _screenAccess == false) ...[
+          const _Help(
+            'Opcional: para que también se ponga en hora cada vez que abras '
+            'Companion (al mirar el emparejamiento, aunque no llegara el '
+            'aviso), da el permiso de accesibilidad. Solo recibe lo de '
+            'Companion, no toca nada y nada sale del móvil.',
+          ),
+          const SizedBox(height: 4),
+          TextButton(
+            onPressed: _askScreen,
+            child: const Text('Leer la pantalla de Companion'),
           ),
         ],
       ],

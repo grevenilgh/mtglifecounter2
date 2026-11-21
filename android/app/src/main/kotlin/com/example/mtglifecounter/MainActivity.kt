@@ -58,6 +58,15 @@ class MainActivity : FlutterActivity() {
                         openCompanionAccess()
                         result.success(null)
                     }
+                    "setScreenEnabled" -> {
+                        CompanionScreenService.setOn(this, call.arguments as Boolean)
+                        result.success(null)
+                    }
+                    "hasScreenAccess" -> result.success(hasScreenAccess())
+                    "openScreenAccess" -> {
+                        openScreenAccess()
+                        result.success(null)
+                    }
                     "openAppInfo" -> {
                         startActivity(
                             Intent(
@@ -69,7 +78,11 @@ class MainActivity : FlutterActivity() {
                     }
                     "events" -> result.success(
                         CompanionListener.read(this).map {
-                            mapOf("kind" to it.getString("kind"), "at" to it.getLong("at"))
+                            mapOf(
+                                "kind" to it.getString("kind"),
+                                "at" to it.getLong("at"),
+                                "left" to (if (it.has("left")) it.getLong("left") else null),
+                            )
                         },
                     )
                     else -> result.notImplemented()
@@ -186,6 +199,33 @@ class MainActivity : FlutterActivity() {
                 )
             }
             NotificationListenerService.requestRebind(component)
+        }
+    }
+
+    // Si el servicio que lee la pantalla de Companion está activado en
+    // Ajustes → Accesibilidad.
+    private fun hasScreenAccess(): Boolean {
+        val enabled = Settings.Secure.getString(
+            contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+        ) ?: return false
+        val component = ComponentName(this, CompanionScreenService::class.java)
+        return enabled.split(':').any {
+            ComponentName.unflattenFromString(it) == component
+        }
+    }
+
+    // La pantalla de Android del servicio (si el móvil la tiene) o la lista
+    // de Accesibilidad.
+    private fun openScreenAccess() {
+        val component = ComponentName(this, CompanionScreenService::class.java)
+        try {
+            startActivity(
+                Intent("android.settings.ACCESSIBILITY_DETAILS_SETTINGS")
+                    .putExtra(Intent.EXTRA_COMPONENT_NAME, component.flattenToString()),
+            )
+        } catch (e: Exception) {
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
     }
 

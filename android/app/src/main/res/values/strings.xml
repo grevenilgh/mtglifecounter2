@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Lo que enseña Android en Ajustes → Accesibilidad para el servicio
+         que lee la pantalla de Companion (CompanionScreenService.kt). -->
+    <string name="companion_screen_label">Pantalla de Companion</string>
+    <string name="companion_screen_description">Solo lee la pantalla de la app Companion de Wizards (la ronda, la mesa, el tiempo y los jugadores) para poner en hora el reloj del contador. No lee ninguna otra app, no toca nada en la pantalla y nada sale del móvil.</string>
+</resources>

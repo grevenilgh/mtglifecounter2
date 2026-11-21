@@ -142,12 +142,17 @@ class CompanionListener : NotificationListenerService() {
             return KINDS.firstOrNull { (_, words) -> words.any { t.contains(it) } }?.first
         }
 
+        /**
+         * Apunta un aviso. [left] es lo que le quedaba al reloj de Companion
+         * (en los que salen de leer su pantalla, «screen_clock»).
+         */
         @Synchronized
-        fun record(context: Context, kind: String, at: Long) {
+        fun record(context: Context, kind: String, at: Long, left: Long? = null) {
             val file = File(context.filesDir, EVENTS)
             val limit = System.currentTimeMillis() - KEEP_MS
             val kept = read(context).filter { it.getLong("at") >= limit }
             val line = JSONObject().put("kind", kind).put("at", at)
+            if (left != null) line.put("left", left)
             file.writeText((kept + line).joinToString("") { it.toString() + "\n" })
         }
 

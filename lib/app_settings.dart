@@ -370,7 +370,8 @@ class AppSettings extends ChangeNotifier {
   }
 
   /// «Eventos de Companion» (beta, solo en Android): el reloj arranca y se
-  /// para con los avisos de ronda de la app Companion (`companion.dart`).
+  /// para con los avisos de ronda de la app Companion y, si se da el permiso
+  /// de accesibilidad, se pone en hora con su pantalla (`companion.dart`).
   bool get companionEnabled => _companionEnabled;
 
   set companionEnabled(bool value) {
