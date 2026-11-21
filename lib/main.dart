@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:mtglifecounter/app_icon.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
+import 'package:mtglifecounter/companion.dart';
 import 'package:mtglifecounter/counter_layout.dart';
 import 'package:mtglifecounter/draws.dart';
 import 'package:mtglifecounter/game_state.dart';
@@ -59,6 +60,11 @@ Future<void> main() async {
   // Solo en Android: pregunta si hay versión nueva al abrir la app.
   final updater = Updater.supported ? (Updater()..check()) : null;
 
+  // Solo en Android: el reloj puede seguir los avisos de ronda de Companion.
+  final companion = CompanionLink.supported
+      ? CompanionLink(prefs, timer, enabled: settings.companionEnabled)
+      : null;
+
   runApp(
     MyApp(
       settings: settings,
@@ -66,6 +72,7 @@ Future<void> main() async {
       storage: storage,
       timer: timer,
       updater: updater,
+      companion: companion,
       // Con --dart-define=WELCOME=true sale siempre, para probarla.
       showWelcome:
           !settings.welcomeDone || const bool.fromEnvironment('WELCOME'),
@@ -81,6 +88,7 @@ class MyApp extends StatelessWidget {
     required this.storage,
     required this.timer,
     this.updater,
+    this.companion,
     this.showWelcome = false,
   });
 
@@ -91,6 +99,9 @@ class MyApp extends StatelessWidget {
 
   /// Busca versiones nuevas; null fuera de Android y en los tests.
   final Updater? updater;
+
+  /// Los avisos de ronda de Companion; null fuera de Android.
+  final CompanionLink? companion;
 
   /// Si sale la bienvenida de la primera vez ([WelcomePage]) al abrir.
   final bool showWelcome;
@@ -112,6 +123,7 @@ class MyApp extends StatelessWidget {
         storage: storage,
         timer: timer,
         updater: updater,
+        companion: companion,
         showWelcome: showWelcome,
       ),
     );
@@ -126,6 +138,7 @@ class MyHomePage extends StatefulWidget {
     required this.storage,
     required this.timer,
     this.updater,
+    this.companion,
     this.showWelcome = false,
   });
 
@@ -136,6 +149,9 @@ class MyHomePage extends StatefulWidget {
 
   /// Busca versiones nuevas; null fuera de Android y en los tests.
   final Updater? updater;
+
+  /// Los avisos de ronda de Companion; null fuera de Android.
+  final CompanionLink? companion;
 
   /// Si sale la bienvenida de la primera vez ([WelcomePage]) al abrir.
   final bool showWelcome;
@@ -159,6 +175,8 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     widget.settings.addListener(_syncSettings);
     _syncSettings();
     widget.timer.onFinished = _onTimeUp;
+    // Los avisos de Companion que llegaron con la app cerrada.
+    widget.companion?.sync();
     if (widget.showWelcome) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => showWelcome(
@@ -183,7 +201,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   // botón de «Acerca de».
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state != AppLifecycleState.resumed) widget.storage.flush();
+    if (state != AppLifecycleState.resumed) {
+      widget.storage.flush();
+    } else {
+      // Al volver de Companion, la ronda puede haber empezado.
+      widget.companion?.sync();
+    }
   }
 
   void _syncSettings() {
@@ -198,6 +221,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
     // Sin el reloj de ajedrez activado en Ajustes no puede quedar uno (al
     // abrir la app o al quitarlo): vuelve a lo de por defecto.
     if (widget.timer.chess && !settings.chessEnabled) widget.timer.reset();
+    widget.companion?.enabled = settings.companionEnabled;
     // El icono del lanzador sigue a la skin.
     if (settings.skinId != _iconSkin) {
       _iconSkin = settings.skinId;
@@ -244,7 +268,12 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
   }
 
   void _openTimer() {
-    showTimerSheet(context, timer: widget.timer, settings: widget.settings);
+    showTimerSheet(
+      context,
+      timer: widget.timer,
+      settings: widget.settings,
+      companion: widget.companion,
+    );
   }
 
   void _resetGame() {
@@ -266,6 +295,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
           settings: widget.settings,
           timer: widget.timer,
           updater: widget.updater,
+          companion: widget.companion,
         ),
       ),
     );
@@ -323,6 +353,7 @@ class _MyHomePageState extends State<MyHomePage> with WidgetsBindingObserver {
                   timer: widget.timer,
                   look: look,
                   warningEnabled: settings.timerWarning,
+                  companion: widget.companion,
                   onTap: _openTimer,
                 )
               : null,

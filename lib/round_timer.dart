@@ -237,6 +237,19 @@ class RoundTimer extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Lo pone en marcha como si se hubiera arrancado en [at] (con los avisos
+  /// de ronda de Companion: la ronda empezó cuando llegó el aviso, aunque la
+  /// app se abra después). Si para entonces ya se ha acabado, se queda parado
+  /// en 0:00 sin el aviso, que llegaría tarde.
+  void startFrom(DateTime at) {
+    if (!canStart) return;
+    final now = _clock();
+    _startedAt = at.isAfter(now) ? now : at;
+    _save();
+    if (!_settle(notify: false)) _tick();
+    notifyListeners();
+  }
+
   void pause() {
     if (!running) return;
     _bank();

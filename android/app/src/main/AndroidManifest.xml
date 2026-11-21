@@ -83,6 +83,22 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- «Eventos de Companion» (beta): lee los avisos de ronda de la app
+             Companion (CompanionListener.kt). Solo funciona con el «Acceso a
+             notificaciones» dado, y no hace nada hasta que se activa en
+             Ajustes. No se desactiva el componente: Android le quitaría el
+             acceso. Va en su propio proceso: en el de la app la dejaba en
+             negro al volver a ella. -->
+        <service
+            android:name=".CompanionListener"
+            android:process=":companion"
+            android:label="Tiempo de ronda de Companion"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
         <!-- Le pasa al instalador la APK descargada (updater.dart). -->
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -46,6 +46,7 @@ class AppSettings extends ChangeNotifier {
     // Quien ya tenía el reloj de ajedrez por defecto lo tiene activado.
     _chessEnabled =
         _prefs.getBool(_kChessEnabled) ?? _timerMode == TimerMode.chess;
+    _companionEnabled = _prefs.getBool(_kCompanionEnabled) ?? false;
     _showStepper = _prefs.getBool(_kShowStepper) ?? false;
     _showHistory = _prefs.getBool(_kShowHistory) ?? true;
     _welcomeDone = _prefs.getBool(_kWelcomeDone) ?? false;
@@ -108,6 +109,7 @@ class AppSettings extends ChangeNotifier {
   static const _kTimerWarning = 'timerWarning';
   static const _kTimerVibrate = 'timerVibrate';
   static const _kChessEnabled = 'chessEnabled';
+  static const _kCompanionEnabled = 'companionEnabled';
 
   /// Límites de la duración de la ronda, en minutos. Para probar el final
   /// de la ronda en el móvil sin esperar 5 minutos, una compilación con
@@ -151,6 +153,7 @@ class AppSettings extends ChangeNotifier {
   late bool _timerWarning;
   late bool _timerVibrate;
   late bool _chessEnabled;
+  late bool _companionEnabled;
   late bool _animations;
   TimeUpStyle? _timeUpStyle;
   late bool _timeUpStays;
@@ -363,6 +366,16 @@ class AppSettings extends ChangeNotifier {
       _timerMode = TimerMode.countdown;
       _prefs.setString(_kTimerMode, _timerMode.name);
     }
+    notifyListeners();
+  }
+
+  /// «Eventos de Companion» (beta, solo en Android): el reloj arranca y se
+  /// para con los avisos de ronda de la app Companion (`companion.dart`).
+  bool get companionEnabled => _companionEnabled;
+
+  set companionEnabled(bool value) {
+    _companionEnabled = value;
+    _prefs.setBool(_kCompanionEnabled, value);
     notifyListeners();
   }
 

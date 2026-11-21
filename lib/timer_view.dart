@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/chess_clock.dart';
+import 'package:mtglifecounter/companion.dart';
 import 'package:mtglifecounter/hold_to_repeat.dart';
 import 'package:mtglifecounter/look.dart';
 import 'package:mtglifecounter/round_timer.dart';
@@ -23,6 +24,7 @@ class TimerButton extends StatelessWidget {
     required this.look,
     required this.warningEnabled,
     required this.onTap,
+    this.companion,
   });
 
   final RoundTimer timer;
@@ -30,13 +32,17 @@ class TimerButton extends StatelessWidget {
   final bool warningEnabled;
   final VoidCallback onTap;
 
+  /// Si va enganchado a Companion, lleva un eslabón delante.
+  final CompanionLink? companion;
+
   @override
   Widget build(BuildContext context) {
     final classic = look.isClassic;
     return RepaintBoundary(
       child: ListenableBuilder(
-        listenable: timer,
+        listenable: Listenable.merge([timer, ?companion]),
         builder: (context, _) {
+          final linked = companion?.engaged ?? false;
           // En el reloj de ajedrez la barra se pone roja cuando se les ha
           // acabado a los dos.
           final chess = timer.chess;
@@ -110,6 +116,11 @@ class TimerButton extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Enganchado a Companion: arranca y se para solo.
+                    if (linked) ...[
+                      Icon(Icons.link_rounded, size: 18, color: foreground),
+                      const SizedBox(width: 3),
+                    ],
                     if (paused)
                       Icon(Icons.pause_rounded, size: 18, color: foreground)
                     else if (chess)
@@ -233,6 +244,7 @@ Future<void> showTimerSheet(
   BuildContext context, {
   required RoundTimer timer,
   required AppSettings settings,
+  CompanionLink? companion,
 }) {
   // Puede ocupar toda la pantalla y se desplaza: con la altura normal de una
   // hoja (9/16 de la pantalla), en los móviles pequeños los botones de
@@ -244,17 +256,26 @@ Future<void> showTimerSheet(
     isScrollControlled: true,
     useSafeArea: true,
     builder: (context) => ListenableBuilder(
-      listenable: Listenable.merge([timer, settings]),
-      builder: (context, _) => _TimerSheet(timer: timer, settings: settings),
+      listenable: Listenable.merge([timer, settings, ?companion]),
+      builder: (context, _) => _TimerSheet(
+        timer: timer,
+        settings: settings,
+        companion: companion,
+      ),
     ),
   );
 }
 
 class _TimerSheet extends StatelessWidget {
-  const _TimerSheet({required this.timer, required this.settings});
+  const _TimerSheet({
+    required this.timer,
+    required this.settings,
+    this.companion,
+  });
 
   final RoundTimer timer;
   final AppSettings settings;
+  final CompanionLink? companion;
 
   @override
   Widget build(BuildContext context) {
@@ -428,6 +449,12 @@ class _TimerSheet extends StatelessWidget {
                           ),
                         ),
                     ],
+                    // En un evento de Companion: si el reloj lo sigue, y
+                    // soltarlo (o volver a engancharlo).
+                    if (companion case final link? when link.inEvent) ...[
+                      const SizedBox(height: 16),
+                      _CompanionRow(link: link, style: style),
+                    ],
                     const SizedBox(height: 22),
                     Row(
                       children: [
@@ -468,6 +495,50 @@ class _TimerSheet extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// En la hoja del reloj, durante un evento de Companion: el interruptor para
+/// que el reloj siga los avisos de ronda o no.
+class _CompanionRow extends StatelessWidget {
+  const _CompanionRow({required this.link, required this.style});
+
+  final CompanionLink link;
+  final ThemedStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final on = link.attached;
+    return Row(
+      children: [
+        Icon(
+          on ? Icons.link_rounded : Icons.link_off_rounded,
+          color: on ? style.ink : style.muted,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Seguir a Companion',
+                style: style.titleStyle.copyWith(fontSize: 16),
+              ),
+              Text(
+                on
+                    ? 'Arranca con cada ronda y se para al acabarla.'
+                    : 'Suelto en este torneo: el reloj va a mano.',
+                style: style.bodyStyle.copyWith(fontSize: 13),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: on,
+          onChanged: (v) => link.attached = v,
+        ),
+      ],
     );
   }
 }

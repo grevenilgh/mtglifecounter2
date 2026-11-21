@@ -1,7 +1,15 @@
 package com.example.mtglifecounter
 
+import android.content.BroadcastReceiver
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.net.Uri
+import android.provider.Settings
+import android.service.notification.NotificationListenerService
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
@@ -20,8 +28,60 @@ class MainActivity : FlutterActivity() {
     // Icono pedido desde Dart, a la espera de que la app pase a segundo plano.
     private var pendingIcon: String? = null
 
+    private var companionChannel: MethodChannel? = null
+
+    // Llega del servicio de Companion (otro proceso) con cada aviso nuevo:
+    // la app vuelve a leer los avisos.
+    private val companionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            companionChannel?.invokeMethod("changed", null)
+        }
+    }
+
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+        companionChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            "mtglifecounter/companion",
+        ).also { channel ->
+            channel.setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "setEnabled" -> {
+                        setCompanionEnabled(call.arguments as Boolean)
+                        result.success(null)
+                    }
+                    "hasAccess" -> result.success(
+                        NotificationManagerCompat.getEnabledListenerPackages(this)
+                            .contains(packageName),
+                    )
+                    "openAccess" -> {
+                        openCompanionAccess()
+                        result.success(null)
+                    }
+                    "openAppInfo" -> {
+                        startActivity(
+                            Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.fromParts("package", packageName, null),
+                            ),
+                        )
+                        result.success(null)
+                    }
+                    "events" -> result.success(
+                        CompanionListener.read(this).map {
+                            mapOf("kind" to it.getString("kind"), "at" to it.getLong("at"))
+                        },
+                    )
+                    else -> result.notImplemented()
+                }
+            }
+        }
+        ContextCompat.registerReceiver(
+            this,
+            companionReceiver,
+            IntentFilter(CompanionListener.ACTION_CHANGED),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "mtglifecounter/app_icon")
             .setMethodCallHandler { call, result ->
                 if (call.method == "set") {
@@ -95,6 +155,58 @@ class MainActivity : FlutterActivity() {
                 .setDataAndType(uri, "application/vnd.android.package-archive")
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK),
         )
+    }
+
+    override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
+        try {
+            unregisterReceiver(companionReceiver)
+        } catch (e: IllegalArgumentException) {
+            // No estaba registrado.
+        }
+        companionChannel = null
+        super.cleanUpFlutterEngine(flutterEngine)
+    }
+
+    // Le dice al servicio de Companion si tiene que hacer caso a los avisos
+    // (con un archivo que mira él, en otro proceso). No se desactiva el
+    // componente: Android le quitaría el acceso a notificaciones y habría que
+    // darlo otra vez. Al encenderlo se le pide a Android que lo conecte ya.
+    private fun setCompanionEnabled(enabled: Boolean) {
+        CompanionListener.setOn(this, enabled)
+        if (enabled) {
+            val component = ComponentName(this, CompanionListener::class.java)
+            // Lo dejan desactivado las versiones de prueba anteriores.
+            if (packageManager.getComponentEnabledSetting(component) ==
+                PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+            ) {
+                packageManager.setComponentEnabledSetting(
+                    component,
+                    PackageManager.COMPONENT_ENABLED_STATE_DEFAULT,
+                    PackageManager.DONT_KILL_APP,
+                )
+            }
+            NotificationListenerService.requestRebind(component)
+        }
+    }
+
+    // La pantalla de Android donde se da el acceso a notificaciones: la de
+    // esta app directamente si se puede (Android 11+), si no la lista.
+    private fun openCompanionAccess() {
+        val component = ComponentName(this, CompanionListener::class.java)
+        val detail = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                .putExtra(
+                    Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME,
+                    component.flattenToString(),
+                )
+        } else {
+            null
+        }
+        try {
+            startActivity(detail ?: Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        } catch (e: Exception) {
+            startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+        }
     }
 
     // El icono se cambia al salir de la app: con ella abierta, algunos móviles

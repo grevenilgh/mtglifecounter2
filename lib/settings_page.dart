@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mtglifecounter/about_page.dart';
 import 'package:mtglifecounter/app_settings.dart';
 import 'package:mtglifecounter/center_bar.dart';
+import 'package:mtglifecounter/companion.dart';
 import 'package:mtglifecounter/counter_layout.dart';
 import 'package:mtglifecounter/game_state.dart';
 import 'package:mtglifecounter/hold_to_repeat.dart';
@@ -53,9 +54,14 @@ class SettingsPage extends StatelessWidget {
     required this.settings,
     required this.timer,
     this.updater,
+    this.companion,
   });
 
   final AppSettings settings;
+
+  /// Los avisos de ronda de Companion; null fuera de Android (y entonces no
+  /// sale su interruptor).
+  final CompanionLink? companion;
 
   /// Para el puntito de versión nueva en la ⓘ y el botón de «Acerca de».
   final Updater? updater;
@@ -570,6 +576,8 @@ class SettingsPage extends StatelessWidget {
               value: settings.chessEnabled,
               onChanged: (v) => _setChess(context, v),
             ),
+            if (companion case final link?)
+              CompanionSettings(settings: settings, link: link),
             const SizedBox(height: 8),
             const Text(
               'Modo por defecto',
@@ -1210,6 +1218,111 @@ class SettingsSwitch extends StatelessWidget {
       onChanged: onChanged,
       activeThumbColor: Colors.white,
       activeTrackColor: kAccent,
+    );
+  }
+}
+
+/// El interruptor de «Eventos de Companion» (beta, solo en Android) y, si
+/// falta, cómo dar el acceso a notificaciones. Lo vuelve a mirar al volver
+/// a la app, que es cuando se vuelve de darlo en los ajustes de Android.
+class CompanionSettings extends StatefulWidget {
+  const CompanionSettings({
+    super.key,
+    required this.settings,
+    required this.link,
+  });
+
+  final AppSettings settings;
+  final CompanionLink link;
+
+  @override
+  State<CompanionSettings> createState() => _CompanionSettingsState();
+}
+
+class _CompanionSettingsState extends State<CompanionSettings>
+    with WidgetsBindingObserver {
+  bool? _access;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkAccess();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkAccess();
+  }
+
+  Future<void> _checkAccess() async {
+    final access = await widget.link.bridge.hasAccess();
+    if (mounted) setState(() => _access = access);
+  }
+
+  Future<void> _set(bool value) async {
+    widget.settings.companionEnabled = value;
+    if (!value || _access == true) return;
+    final go = await showThemedConfirm(
+      context,
+      settings: widget.settings,
+      icon: Icons.notifications_active_outlined,
+      title: 'Dar acceso a notificaciones',
+      message:
+          'Para saber cuándo empieza y acaba cada ronda, la app lee los '
+          'avisos de Companion (solo los de Companion). Android te pedirá '
+          '«Acceso a notificaciones»: actívalo para esta app.',
+      confirmLabel: 'Ir a Ajustes',
+    );
+    if (go) await widget.link.bridge.openAccess();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final on = widget.settings.companionEnabled;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SettingsSwitch(
+          title: 'Eventos de Companion',
+          badge: 'BETA',
+          subtitle:
+              'En un torneo, el reloj arranca solo cuando Companion avisa '
+              'de que empieza la ronda (con la duración de aquí) y se para '
+              'cuando avisa de que acaba. Si tienes Companion abierto en ese '
+              'momento no avisa: arráncalo a mano. Se suelta desde el reloj '
+              'de la barra.',
+          value: on,
+          onChanged: _set,
+        ),
+        if (on && _access == false) ...[
+          const _Help(
+            'Falta el acceso a notificaciones. Si Android dice que es un '
+            'ajuste restringido, abre la información de la app, toca ⋮ y '
+            '«Permitir ajustes restringidos», y vuelve a probar.',
+          ),
+          const SizedBox(height: 4),
+          Wrap(
+            spacing: 8,
+            children: [
+              TextButton(
+                onPressed: widget.link.bridge.openAccess,
+                child: const Text('Dar acceso'),
+              ),
+              TextButton(
+                onPressed: widget.link.bridge.openAppInfo,
+                child: const Text('Información de la app'),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }
