@@ -54,6 +54,31 @@ class FakeBridge implements CompanionBridge {
   @override
   Future<List<CompanionEvent>> events() async => List.of(list);
 
+  bool exempt = true;
+  bool xiaomi = false;
+  int askedBattery = 0;
+  int openedAutostart = 0;
+
+  @override
+  Future<bool> batteryExempt() async => exempt;
+
+  @override
+  Future<void> askBatteryExempt() async => askedBattery++;
+
+  @override
+  Future<bool> isXiaomi() async => xiaomi;
+
+  @override
+  Future<void> openAutostart() async => openedAutostart++;
+
+  int shared = 0;
+
+  @override
+  Future<bool> shareTraces() async {
+    shared++;
+    return true;
+  }
+
   final List<(String, Map<String, Object?>)> logs = [];
 
   @override
@@ -202,6 +227,45 @@ void main() {
       now = now.add(CompanionLink.idleLimit);
       expect(link.engaged, isFalse);
       expect(link.inEvent, isFalse);
+    });
+
+    test('«Event Ended» suelta el evento y deja el reloj parado', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final link = newLink(timer);
+      final start = now;
+      now = now.add(const Duration(minutes: 3));
+      // Como en el torneo de prueba: la última ronda se cierra y, en el
+      // mismo segundo, se acaba el evento.
+      link.apply([
+        ev(CompanionEventKind.roundStarted, start),
+        ev(CompanionEventKind.roundCompleted, now),
+        ev(CompanionEventKind.eventEnded, now.add(const Duration(milliseconds: 300))),
+      ]);
+      expect(link.inEvent, isFalse);
+      expect(link.engaged, isFalse);
+      expect(timer.running, isFalse);
+      expect(timer.remaining, const Duration(minutes: 49));
+      expect(
+        bridge.logs.where((l) => l.$1 == 'event').last.$2['kind'],
+        'event_ended',
+      );
+    });
+
+    test('suelto en un torneo, el siguiente se engancha tras «Event Ended»', () {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final link = newLink(timer);
+      link.apply([ev(CompanionEventKind.roundStarted, now)]);
+      link.attached = false;
+      now = now.add(const Duration(minutes: 1));
+      link.apply([ev(CompanionEventKind.eventEnded, now)]);
+      expect(link.attached, isTrue);
+      // Otro torneo esa misma tarde, antes de las 3 horas.
+      now = now.add(const Duration(minutes: 30));
+      link.apply([ev(CompanionEventKind.roundStarted, now)]);
+      expect(link.engaged, isTrue);
+      expect(timer.running, isTrue);
     });
 
     test('lo de hace más de 3 horas no se aplica', () {
@@ -544,6 +608,84 @@ void main() {
         findsOneWidget,
       );
       await close(tester);
+    });
+
+    testWidgets('con ahorro de batería y en Xiaomi salen sus botones', (
+      tester,
+    ) async {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final settings = AppSettings(prefs)..companionEnabled = true;
+      Future<void> show() async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: ListView(
+                children: [
+                  CompanionSettings(
+                    key: UniqueKey(),
+                    settings: settings,
+                    link: newLink(timer),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      // Sin ahorro y en otra marca: nada.
+      await show();
+      expect(find.text('Quitar ahorro de batería'), findsNothing);
+      expect(find.text('Inicio automático'), findsNothing);
+      // Con ahorro de batería en un Xiaomi: los dos.
+      bridge
+        ..exempt = false
+        ..xiaomi = true;
+      await show();
+      await tester.tap(find.text('Quitar ahorro de batería'));
+      await tester.tap(find.text('Inicio automático'));
+      expect(bridge.askedBattery, 1);
+      expect(bridge.openedAutostart, 1);
+    });
+
+    testWidgets('«Enviar trazas» no sale en la versión normal', (tester) async {
+      await pumpApp(tester);
+      await openCompanionSettings(tester);
+      expect(CompanionLink.testBuild, isFalse);
+      expect(find.text('Enviar trazas'), findsNothing);
+      await close(tester);
+    });
+
+    testWidgets('en la de prueba, explica qué se manda y abre compartir', (
+      tester,
+    ) async {
+      final timer = newTimer();
+      addTearDown(timer.dispose);
+      final settings = AppSettings(prefs);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ListView(
+              children: [
+                CompanionSettings(
+                  settings: settings,
+                  link: newLink(timer),
+                  showSendTraces: true,
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Enviar trazas'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('nombres de los jugadores tapados'), findsOne);
+      await tester.tap(find.text('Elegir cómo enviarlo'));
+      await tester.pumpAndSettle();
+      expect(bridge.shared, 1);
     });
 
     testWidgets('sin Companion (fuera de Android) no sale el interruptor', (

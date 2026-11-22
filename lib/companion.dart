@@ -14,6 +14,10 @@ enum CompanionEventKind {
   /// «Ronda completada»: el organizador cerró la ronda.
   roundCompleted('round_completed'),
 
+  /// «Event Ended»: se acabó el torneo. Llega justo después del último
+  /// «Ronda completada» (visto en un torneo de prueba con emuladores).
+  eventEnded('event_ended'),
+
   /// El reloj de Companion leído en su pantalla, en marcha, con lo que le
   /// quedaba ([CompanionEvent.left]).
   screenClock('screen_clock');
@@ -62,6 +66,19 @@ abstract class CompanionBridge {
   /// Abre la pantalla de Accesibilidad de Android donde se activa.
   Future<void> openScreenAccess();
 
+  /// Si Android no le aplica el ahorro de batería a la app. Con él, los
+  /// avisos de Companion pueden llegar minutos tarde (visto en un Xiaomi).
+  Future<bool> batteryExempt();
+
+  /// Pide a Android quitarle el ahorro de batería a la app (pregunta él).
+  Future<void> askBatteryExempt();
+
+  /// Si es un Xiaomi (o Redmi, Poco), que además pide «Inicio automático».
+  Future<bool> isXiaomi();
+
+  /// Abre «Inicio automático» de Xiaomi (o la información de la app).
+  Future<void> openAutostart();
+
   /// Abre la información de la app, donde se permiten los ajustes
   /// restringidos (Android 13+ los pide a las apps instaladas con un APK).
   Future<void> openAppInfo();
@@ -72,6 +89,11 @@ abstract class CompanionBridge {
   /// TRAZAS PROVISIONALES: apunta [ev] en el registro de diagnóstico del
   /// móvil (`companion_debug.jsonl`), para analizar un torneo.
   Future<void> log(String ev, Map<String, Object?> data);
+
+  /// APK DE PRUEBA: junta las trazas en un zip (con los nombres de los
+  /// jugadores tapados) y abre el menú de compartir de Android. Devuelve si
+  /// se ha podido.
+  Future<bool> shareTraces();
 
   /// Se llama cuando el servicio apunta un aviso nuevo (con la app abierta).
   set onChanged(VoidCallback? callback);
@@ -115,11 +137,28 @@ class AndroidCompanionBridge implements CompanionBridge {
   Future<void> openScreenAccess() => _call<void>('openScreenAccess');
 
   @override
+  Future<bool> batteryExempt() async =>
+      await _call<bool>('batteryExempt') ?? true;
+
+  @override
+  Future<void> askBatteryExempt() => _call<void>('askBatteryExempt');
+
+  @override
+  Future<bool> isXiaomi() async => await _call<bool>('isXiaomi') ?? false;
+
+  @override
+  Future<void> openAutostart() => _call<void>('openAutostart');
+
+  @override
   Future<void> openAppInfo() => _call<void>('openAppInfo');
 
   @override
   Future<void> log(String ev, Map<String, Object?> data) =>
       _call<void>('log', {'ev': ev, 'data': data});
+
+  @override
+  Future<bool> shareTraces() async =>
+      await _call<bool>('shareTraces') ?? false;
 
   @override
   Future<List<CompanionEvent>> events() async {
@@ -167,14 +206,17 @@ class AndroidCompanionBridge implements CompanionBridge {
 /// * Con el permiso de accesibilidad (opcional), cada vez que la pantalla de
 ///   Companion enseña su reloj en marcha, el de la app se pone en hora con
 ///   él ([RoundTimer.follow]).
-/// * Companion no avisa del final del torneo: se suelta solo a las
-///   [idleLimit] sin avisos.
+/// * «Event Ended» suelta el evento (el reloj se queda como lo dejó la última
+///   ronda, parado). Si ese aviso no llega, se suelta solo a las [idleLimit]
+///   sin avisos.
 ///
 /// Desde la hoja del reloj se puede soltar ([attached] = false): hasta que
 /// acabe ese evento no toca el reloj.
 ///
-/// Companion no manda el aviso si está abierta en ese momento (lo enseña
-/// dentro): esa ronda no llega, y sin la pantalla el reloj se arranca a mano.
+/// Con Companion abierta a veces no manda el aviso (en el torneo de prueba
+/// con emuladores, abierta en su inicio no avisó y en la pantalla de la
+/// partida sí): esa ronda no llega, y sin la pantalla el reloj se arranca a
+/// mano.
 class CompanionLink extends ChangeNotifier {
   CompanionLink(
     this._prefs,
@@ -247,6 +289,11 @@ class CompanionLink extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// APK DE PRUEBA para otros jugadores: solo en una compilación con
+  /// `--dart-define=TRACES=true` sale en Ajustes «Enviar trazas». La versión
+  /// publicada no lo lleva.
+  static const bool testBuild = bool.fromEnvironment('TRACES');
+
   /// Hay un evento de Companion en marcha (un aviso hace menos de
   /// [idleLimit]), enganchado o no.
   bool get inEvent {
@@ -306,6 +353,13 @@ class CompanionLink extends ChangeNotifier {
         traceEvent('too-old');
         continue;
       }
+      // Se acabó el torneo: ya no hay evento (y el siguiente se engancha).
+      if (event.kind == CompanionEventKind.eventEnded) {
+        _lastEvent = null;
+        _detached = false;
+        traceEvent('applied');
+        continue;
+      }
       final last = _lastEvent;
       // Un evento nuevo vuelve a engancharse aunque el anterior se soltara.
       if (last == null || event.at.difference(last) >= idleLimit) {
@@ -318,6 +372,7 @@ class CompanionLink extends ChangeNotifier {
       }
       switch (event.kind) {
         case CompanionEventKind.eventStarted:
+        case CompanionEventKind.eventEnded:
           break;
         case CompanionEventKind.roundStarted:
           _timer.reset();

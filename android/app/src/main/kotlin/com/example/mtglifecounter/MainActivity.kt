@@ -50,10 +50,7 @@ class MainActivity : FlutterActivity() {
                         setCompanionEnabled(call.arguments as Boolean)
                         result.success(null)
                     }
-                    "hasAccess" -> result.success(
-                        NotificationManagerCompat.getEnabledListenerPackages(this)
-                            .contains(packageName),
-                    )
+                    "hasAccess" -> result.success(CompanionDebug.notifAccess(this))
                     "openAccess" -> {
                         openCompanionAccess()
                         result.success(null)
@@ -67,7 +64,35 @@ class MainActivity : FlutterActivity() {
                             // después) como objetos, no como texto.
                             data.put(k.toString(), org.json.JSONObject.wrap(v) ?: org.json.JSONObject.NULL)
                         }
-                        CompanionDebug.log(this, "app", args["ev"].toString(), data)
+                        val ev = args["ev"].toString()
+                        // Al abrir, volver y activarlo: si siguen los dos
+                        // permisos (MIUI apaga la accesibilidad sin avisar).
+                        if (ev in setOf("app-open", "app-resumed", "enabled")) {
+                            data.put("notifAccess", CompanionDebug.notifAccess(this))
+                            data.put("screenAccess", CompanionDebug.screenAccess(this))
+                        }
+                        CompanionDebug.log(this, "app", ev, data)
+                        result.success(null)
+                    }
+                    // APK de prueba: el zip de las trazas, para compartirlo.
+                    "shareTraces" -> {
+                        try {
+                            CompanionDebug.share(this)
+                            result.success(true)
+                        } catch (e: Exception) {
+                            result.error("share", e.message, null)
+                        }
+                    }
+                    // Ahorro de batería: si Android duerme la app, los avisos
+                    // de Companion le llegan tarde (visto en un Xiaomi).
+                    "batteryExempt" -> result.success(CompanionDebug.batteryExempt(this))
+                    "askBatteryExempt" -> {
+                        askBatteryExempt()
+                        result.success(null)
+                    }
+                    "isXiaomi" -> result.success(CompanionDebug.isXiaomi())
+                    "openAutostart" -> {
+                        openAutostart()
                         result.success(null)
                     }
                     "setScreenEnabled" -> {
@@ -214,18 +239,46 @@ class MainActivity : FlutterActivity() {
         }
     }
 
-    // Si el servicio que lee la pantalla de Companion está activado en
-    // Ajustes → Accesibilidad.
-    private fun hasScreenAccess(): Boolean {
-        val enabled = Settings.Secure.getString(
-            contentResolver,
-            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-        ) ?: return false
-        val component = ComponentName(this, CompanionScreenService::class.java)
-        return enabled.split(':').any {
-            ComponentName.unflattenFromString(it) == component
+    // Pide a Android que no le aplique el ahorro de batería a la app (Android
+    // pregunta con su propio aviso). Si no deja, la lista de apps.
+    @android.annotation.SuppressLint("BatteryLife")
+    private fun askBatteryExempt() {
+        try {
+            startActivity(
+                Intent(
+                    Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.fromParts("package", packageName, null),
+                ),
+            )
+        } catch (e: Exception) {
+            startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
         }
     }
+
+    // En Xiaomi, además, «Inicio automático»: sin él, la app no se despierta
+    // con los avisos. La pantalla es de Xiaomi; si no está, la de la app.
+    private fun openAutostart() {
+        val xiaomi = Intent().setComponent(
+            ComponentName(
+                "com.miui.securitycenter",
+                "com.miui.permcenter.autostart.AutoStartManagementActivity",
+            ),
+        )
+        try {
+            startActivity(xiaomi)
+        } catch (e: Exception) {
+            startActivity(
+                Intent(
+                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.fromParts("package", packageName, null),
+                ),
+            )
+        }
+    }
+
+    // Si el servicio que lee la pantalla de Companion está activado en
+    // Ajustes → Accesibilidad.
+    private fun hasScreenAccess(): Boolean = CompanionDebug.screenAccess(this)
 
     // La pantalla de Android del servicio (si el móvil la tiene) o la lista
     // de Accesibilidad.

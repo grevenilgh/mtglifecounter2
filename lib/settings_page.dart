@@ -1230,10 +1230,14 @@ class CompanionSettings extends StatefulWidget {
     super.key,
     required this.settings,
     required this.link,
+    @visibleForTesting this.showSendTraces = false,
   });
 
   final AppSettings settings;
   final CompanionLink link;
+
+  /// Para los tests: «Enviar trazas» sin compilar la APK de prueba.
+  final bool showSendTraces;
 
   @override
   State<CompanionSettings> createState() => _CompanionSettingsState();
@@ -1243,6 +1247,8 @@ class _CompanionSettingsState extends State<CompanionSettings>
     with WidgetsBindingObserver {
   bool? _access;
   bool? _screenAccess;
+  bool? _batteryExempt;
+  bool _xiaomi = false;
 
   @override
   void initState() {
@@ -1262,14 +1268,24 @@ class _CompanionSettingsState extends State<CompanionSettings>
     if (state == AppLifecycleState.resumed) _checkAccess();
   }
 
+  // Para sacar las capturas de la guía de la APK de prueba: con
+  // --dart-define=GUIDE_SHOTS=true hace como si faltaran los permisos y el
+  // móvil fuera un Xiaomi, para que salgan todos los botones (los permisos de
+  // verdad no se tocan).
+  static const _guideShots = bool.fromEnvironment('GUIDE_SHOTS');
+
   Future<void> _checkAccess() async {
     final bridge = widget.link.bridge;
-    final access = await bridge.hasAccess();
-    final screen = await bridge.hasScreenAccess();
+    final access = !_guideShots && await bridge.hasAccess();
+    final screen = !_guideShots && await bridge.hasScreenAccess();
+    final battery = !_guideShots && await bridge.batteryExempt();
+    final xiaomi = _guideShots || await bridge.isXiaomi();
     if (mounted) {
       setState(() {
         _access = access;
         _screenAccess = screen;
+        _batteryExempt = battery;
+        _xiaomi = xiaomi;
       });
     }
   }
@@ -1294,6 +1310,29 @@ class _CompanionSettingsState extends State<CompanionSettings>
       confirmLabel: 'Ir a Accesibilidad',
     );
     if (go) await widget.link.bridge.openScreenAccess();
+  }
+
+  // APK de prueba: antes de compartir se dice qué se manda.
+  Future<void> _sendTraces() async {
+    final go = await showThemedConfirm(
+      context,
+      settings: widget.settings,
+      icon: Icons.send_outlined,
+      title: 'Enviar trazas',
+      message:
+          'Se manda un archivo con lo que ha visto la app de Companion: sus '
+          'avisos, sus pantallas (con los nombres de los jugadores tapados) '
+          'y lo que hizo el reloj con cada cosa. Nada de otras apps. Elige '
+          'por dónde mandarlo (correo, WhatsApp…).',
+      confirmLabel: 'Elegir cómo enviarlo',
+    );
+    if (!go) return;
+    final ok = await widget.link.bridge.shareTraces();
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se han podido preparar las trazas.')),
+      );
+    }
   }
 
   Future<void> _set(bool value) async {
@@ -1370,6 +1409,41 @@ class _CompanionSettingsState extends State<CompanionSettings>
           TextButton(
             onPressed: _askScreen,
             child: const Text('Leer la pantalla de Companion'),
+          ),
+        ],
+        // Ahorro de batería: con él, Android duerme la app y los avisos de
+        // Companion le llegan tarde (en un Xiaomi, de 1 a 5 minutos).
+        if (on && _batteryExempt == false) ...[
+          const _Help(
+            'Para que los avisos de Companion lleguen al momento, quita el '
+            'ahorro de batería al contador (Android pregunta antes). Gasta '
+            'lo mismo: la app no hace nada mientras no llega un aviso.',
+          ),
+          TextButton(
+            onPressed: widget.link.bridge.askBatteryExempt,
+            child: const Text('Quitar ahorro de batería'),
+          ),
+        ],
+        if (on && _xiaomi) ...[
+          const _Help(
+            'En Xiaomi, Redmi y Poco, activa también «Inicio automático» '
+            'para el contador: si no, se duerme y los avisos llegan tarde.',
+          ),
+          TextButton(
+            onPressed: widget.link.bridge.openAutostart,
+            child: const Text('Inicio automático'),
+          ),
+        ],
+        // Solo en la APK de prueba que se pasa a otros jugadores.
+        if (CompanionLink.testBuild || widget.showSendTraces) ...[
+          const _Help(
+            'Versión de prueba: tras un torneo (o a mitad), manda lo que ha '
+            'visto la app para ayudar a afinarla.',
+          ),
+          TextButton.icon(
+            onPressed: _sendTraces,
+            icon: const Icon(Icons.send_outlined),
+            label: const Text('Enviar trazas'),
           ),
         ],
       ],

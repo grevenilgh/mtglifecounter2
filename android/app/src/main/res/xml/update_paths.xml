@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- La carpeta donde updater.dart descarga la APK nueva (la caché de la app). -->
+<!-- Lo que la app pasa a otras apps (la caché de la app): la APK nueva que
+     descarga updater.dart, para el instalador, y el zip de las trazas de
+     Companion de la APK de prueba (CompanionDebug.share), para compartirlo. -->
 <paths>
     <cache-path name="updates" path="updates/"/>
+    <cache-path name="traces" path="traces/"/>
 </paths>

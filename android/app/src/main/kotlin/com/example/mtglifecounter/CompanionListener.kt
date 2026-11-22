@@ -40,7 +40,12 @@ class CompanionListener : NotificationListenerService() {
                 .put("on", isOn(this))
                 .put("companion", CompanionDebug.version(this, COMPANION) ?: JSONObject.NULL)
                 .put("app", CompanionDebug.version(this, packageName) ?: JSONObject.NULL)
-                .put("battery", CompanionDebug.battery(this) ?: JSONObject.NULL),
+                .put("battery", CompanionDebug.battery(this) ?: JSONObject.NULL)
+                .put("batteryExempt", CompanionDebug.batteryExempt(this))
+                // Si la lectura de pantalla sigue activada (en un Xiaomi solo
+                // volvió a conectarse este servicio).
+                .put("screenAccess", CompanionDebug.screenAccess(this))
+                .put("brand", "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}"),
         )
     }
 
@@ -140,11 +145,17 @@ class CompanionListener : NotificationListenerService() {
         private const val KEEP_MS = 24L * 60 * 60 * 1000
 
         // Los títulos llegan en el idioma del móvil. Los de español son los
-        // vistos en un torneo; los de inglés, los esperables (sin ver aún).
+        // vistos en un torneo; los de inglés, en uno de prueba con emuladores
+        // (2026-11-22). «Event Ended» llega justo después del último «Round
+        // completed»; su título en español aún no se ha visto.
         private val KINDS = listOf(
             "round_started" to listOf("ronda iniciada", "round started", "round has started"),
             "round_completed" to listOf("ronda completada", "round completed", "round complete", "round ended"),
             "event_started" to listOf("evento empezado", "event started", "event has started"),
+            "event_ended" to listOf(
+                "evento finalizado", "evento terminado", "evento acabado", "evento completado",
+                "evento concluido", "event ended", "event has ended", "event complete",
+            ),
         )
 
         // Existe si está activado en Ajustes (lo pone MainActivity).

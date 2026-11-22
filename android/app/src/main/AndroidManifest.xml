@@ -5,6 +5,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <!-- Vibrar al pasar el turno del reloj de ajedrez y al acabarse el tiempo. -->
     <uses-permission android:name="android.permission.VIBRATE"/>
+    <!-- «Eventos de Companion»: pedir que Android no duerma la app, para que
+         los avisos de Companion le lleguen al momento (en Xiaomi llegaban
+         minutos tarde). Android pregunta antes. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
     <application
         android:label="AlicanteMTG"
         android:name="${applicationName}"
