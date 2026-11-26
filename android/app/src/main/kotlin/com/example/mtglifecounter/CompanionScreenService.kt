@@ -17,9 +17,11 @@ import java.io.File
  * Companion (packageNames en res/xml/companion_screen.xml): las demás apps ni
  * le llegan. No toca nada en la pantalla.
  *
- * Busca el reloj de la ronda (el único texto con forma de reloj, «52:18») y,
- * si lo ve bajar al ritmo de los segundos, apunta lo que le queda como aviso
- * «screen_clock» para la app ([followClock]), que pone su reloj en hora.
+ * Busca el reloj de la ronda («52:18») en su sitio, preguntando a Companion
+ * por sus nombres internos ([TIMER_IDS]), y si ahí no hay, cada 15 s, el
+ * único texto con forma de reloj de la pantalla. Si lo ve bajar al ritmo de
+ * los segundos, apunta lo que le queda como aviso «screen_clock» para la app
+ * ([followClock]), que pone su reloj en hora.
  *
  * TRAZAS PROVISIONALES (quitar cuando se sepa todo lo de Companion; ver
  * CLAUDE.md): guarda cada pantalla de Companion entera (todos los elementos,
@@ -37,6 +39,9 @@ class CompanionScreenService : AccessibilityService() {
     // segundo con el reloj) y cuándo: para no guardar la misma una y otra vez.
     private var lastShape: String? = null
     private var lastSaved = 0L
+
+    // Cuándo se recorrió la pantalla entera por última vez.
+    private var lastWalk = 0L
 
     override fun onServiceConnected() {
         CompanionDebug.log(
@@ -70,10 +75,30 @@ class CompanionScreenService : AccessibilityService() {
         }
         val root = rootInActiveWindow ?: return
         if (root.packageName?.toString() != CompanionListener.COMPANION) return
+        // Batería: pedir cada elemento a Companion es una llamada entre
+        // procesos, y recorrer sus 200–300 elementos con cada cambio (el
+        // reloj cambia cada segundo) gastaba un 5 % de un núcleo en un Pixel
+        // 9a. El reloj se lee preguntando solo por sus nombres internos; la
+        // pantalla entera, al cambiar de ventana y como mucho cada [WALK_MS].
+        val timerTexts = timerTexts(root)
+        val fromTimer = timerTexts.any { CLOCK.matches(it) }
+        if (fromTimer) followClock(timerTexts, "timer-id", now)
+        val windowChanged = event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        if (!windowChanged && now - lastWalk < WALK_MS) return
+        lastWalk = now
         val nodes = JSONArray()
         collect(root, nodes, 0)
         if (nodes.length() == 0) return
-        followClock(nodes, now)
+        // Sin nada en el sitio del reloj: el único texto con forma de reloj
+        // de toda la pantalla (cada [WALK_MS] basta: se comprueba que baja
+        // lo mismo que el tiempo que pasa).
+        if (!fromTimer) {
+            followClock(
+                (0 until nodes.length()).map { nodes.getJSONObject(it).optString("text") },
+                "only-clock",
+                now,
+            )
+        }
         // La misma pantalla con otros números (el reloj): como mucho una vez
         // cada 15 s. Una pantalla distinta, al momento.
         val shape = nodes.toString().replace(Regex("\\d"), "0")
@@ -102,25 +127,28 @@ class CompanionScreenService : AccessibilityService() {
     private var sentAt = 0L
     private var lastDecision: String? = null
 
-    private fun followClock(nodes: JSONArray, now: Long) {
-        val all = (0 until nodes.length()).map { nodes.getJSONObject(it) }
-        val texts = all.map { it.optString("text") }
-        // Primero lo que esté en el sitio del reloj ([TIMER_IDS]: el hueco
-        // «timer» de la pantalla de la partida del jugador, que en un torneo
-        // de tienda (EventLink) lleva «52:18» y en uno montado desde la app
-        // va vacío, y el «countDownTimer» del organizador). Si ahí no hay
-        // nada, el único texto de la pantalla con forma de reloj.
-        val inTimer = all.filter { it.optBoolean("inTimer") }
-            .mapNotNull { CLOCK.matchEntire(it.optString("text")) }
-        val anywhere = texts.mapNotNull { CLOCK.matchEntire(it) }
-        val clocks = if (inTimer.isNotEmpty()) inTimer else anywhere
+    // Los textos del reloj ([TIMER_TEXT_IDS]: «timerTimeLeft» de la pantalla
+    // de la partida del jugador, que en un torneo de tienda (EventLink) lleva
+    // «52:18» y en uno montado desde la app va vacío, y «countDownTimer» del
+    // organizador). Una llamada a Companion por nombre, no una por elemento
+    // de la pantalla.
+    private fun timerTexts(root: AccessibilityNodeInfo): List<String> =
+        TIMER_TEXT_IDS.flatMap { id ->
+            root.findAccessibilityNodeInfosByViewId("${CompanionListener.COMPANION}:id/$id")
+                .mapNotNull { it.text?.toString()?.takeIf(String::isNotBlank) }
+        }.distinct()
+
+    // [source]: «timer-id» si [texts] son los del sitio del reloj y
+    // «only-clock» si son los de toda la pantalla.
+    private fun followClock(texts: List<String>, source: String, now: Long) {
+        val clocks = texts.mapNotNull { CLOCK.matchEntire(it) }
         // Algo con pinta de reloj pero que no encaja («-01:23», «1:02:03»…),
         // por si Companion lo enseña así al acabarse o pasarse.
         val near = texts.filter { it.contains(':') && it.any(Char::isDigit) && it.length <= 10 }
         val trace = JSONObject()
             .put("clocks", JSONArray(clocks.map { it.value }))
             .put("near", JSONArray(near))
-            .put("source", if (inTimer.isNotEmpty()) "timer-id" else "only-clock")
+            .put("source", source)
         // Solo cuando cambia lo que ve o lo que decide (si no, con cada
         // cambio de la pantalla se repetiría lo mismo).
         fun decide(decision: String) {
@@ -213,6 +241,7 @@ class CompanionScreenService : AccessibilityService() {
 
     companion object {
         private const val SAME_SCREEN_MS = 15_000L
+        private const val WALK_MS = 15_000L
         private val CLOCK = Regex("""^\s*(\d{1,3}):(\d{2})\s*$""")
 
         // Los nombres internos del sitio del reloj de la ronda, vistos en un
@@ -225,6 +254,10 @@ class CompanionScreenService : AccessibilityService() {
         // debería llevar el tiempo: sin confirmar aún (si sale con otro
         // nombre, lo dirán las trazas de companion_screen.jsonl).
         private val TIMER_IDS = setOf("timer", "timerRow", "countDownTimer", "timerTimeLeft")
+
+        // De esos, los que llevan el texto del reloj (en un Pixel 9a, el
+        // 2026-11-26, «countDownTimer» de un torneo montado desde Companion).
+        private val TIMER_TEXT_IDS = listOf("timerTimeLeft", "countDownTimer")
 
         // Existe si está activado en Ajustes (lo pone MainActivity).
         private const val ON = "companion_screen_on"
