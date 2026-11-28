@@ -27,6 +27,13 @@ object CompanionDebug {
     @Synchronized
     fun log(context: Context, src: String, ev: String, data: JSONObject = JSONObject()) {
         data.put("at", System.currentTimeMillis()).put("src", src).put("ev", ev)
+            // El procesador gastado por el proceso que escribe (`:companion`
+            // en «notif» y «screen», el de la app en «app») desde que
+            // arrancó, y cuál es: entre dos líneas del mismo pid sale lo que
+            // gasta (en un Pixel 9a, 0,02 % de un núcleo con Companion
+            // cerrada y ~1,5 % abierta con el reloj en marcha).
+            .put("cpuMs", android.os.Process.getElapsedCpuTime())
+            .put("pid", android.os.Process.myPid())
         append(context, FILE, data)
     }
 
